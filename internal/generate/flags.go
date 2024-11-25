@@ -20,16 +20,14 @@ import (
 )
 
 type config struct {
-	googleapis string
-	language   string
-	output     string
+	api      string
+	language string
 }
 
 func parseFlags(cfg *config, args []string) (*config, error) {
 	flags := flag.NewFlagSet("", flag.ContinueOnError)
+	flags.StringVar(&cfg.api, "api", "", "name of API inside googleapis")
 	flags.StringVar(&cfg.language, "language", "", "specify from cpp, csharp, go, java, node, php, python, ruby, rust")
-	flags.StringVar(&cfg.googleapis, "googleapis", "", "location of googleapis `dir`")
-	flags.StringVar(&cfg.output, "output", "", "location of generated client library output")
 
 	// We don't want to print the whole usage message on each flags
 	// error, so we set to a no-op and do the printing ourselves.
@@ -62,11 +60,15 @@ Flags:
 }
 
 func validateConfig(cfg *config) error {
+	if cfg.api == "" {
+		return fmt.Errorf("api must be provided")
+	}
+
 	switch cfg.language {
 	case "cpp":
 		return errNotImplemented
-	case "csharp":
-		return errNotImplemented
+	case "dotnet":
+		return nil
 	case "go":
 		return errNotImplemented
 	case "java":
