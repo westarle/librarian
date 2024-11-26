@@ -37,7 +37,7 @@ func parseFlags(cfg *config, args []string) (*config, error) {
 
 Usage:
 
-  generator [command] [flags]
+  generator [flags]
 
 Flags:
 

@@ -47,6 +47,6 @@ func cloneGoogleapis(ctx context.Context) (*gitrepo.Repo, error) {
 
 func cloneLanguageRepo(ctx context.Context, language string) (*gitrepo.Repo, error) {
 	languageRepoURL := fmt.Sprintf("https://github.com/googleapis/google-cloud-%s", language)
-	repoPath := filepath.Join(os.TempDir(), fmt.Sprintf("/google-cloud-%s", language))
+	repoPath := filepath.Join(os.TempDir(), fmt.Sprintf("/generator-google-cloud-%s", language))
 	return gitrepo.CloneOrOpen(ctx, repoPath, languageRepoURL)
 }
