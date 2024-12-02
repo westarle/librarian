@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     https://www.apache.org/licenses/LICENSE-2.0
+//	https://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,8 +14,17 @@
 
 package main
 
-import "fmt"
+import (
+	"context"
+	"log"
+	"os"
+
+	"github.com/googleapis/generator/internal/generate"
+)
 
 func main() {
-	fmt.Println("TODO: implement generator")
+	ctx := context.Background()
+	if err := generate.Run(ctx, os.Args[1:]...); err != nil {
+		log.Fatal(err)
+	}
 }
