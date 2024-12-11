@@ -16,7 +16,6 @@ package command
 
 import (
 	"flag"
-	"fmt"
 )
 
 var (
