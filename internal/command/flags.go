@@ -30,7 +30,7 @@ var (
 )
 
 func addFlagAPIRoot(fs *flag.FlagSet) {
-	fs.StringVar(&flagAPIRoot, "api-root", "", "(Required) location of googleapis repository")
+	fs.StringVar(&flagAPIRoot, "api-root", "", "location of googleapis repository. If undefined, googleapis will be cloned to /tmp")
 }
 
 func addFlagAPIPath(fs *flag.FlagSet) {
