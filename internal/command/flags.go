@@ -43,8 +43,7 @@ func addFlagBranch(fs *flag.FlagSet) {
 }
 
 func addFlagLanguage(fs *flag.FlagSet) {
-	fs.StringVar(&flagLanguage, "language", "", "language to generate code for")
-	fs.Func("language", "", func(language string) error {
+	fs.Func("language", "language to generate code for", func(language string) error {
 		if !supportedLanguages[language] {
 			return fmt.Errorf("invalid -language flag specified: %q", language)
 		}
