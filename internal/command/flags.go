@@ -16,7 +16,6 @@ package command
 
 import (
 	"flag"
-	"fmt"
 )
 
 var (
@@ -31,11 +30,11 @@ var (
 )
 
 func addFlagAPIRoot(fs *flag.FlagSet) {
-	fs.StringVar(&flagAPIRoot, "api-root", "", "location of googleapis repository")
+	fs.StringVar(&flagAPIRoot, "api-root", "", "location of googleapis repository. If undefined, googleapis will be cloned to /tmp")
 }
 
 func addFlagAPIPath(fs *flag.FlagSet) {
-	fs.StringVar(&flagAPIPath, "api-path", "", "path api-root to the API to be generated (e.g., google/cloud/functions/v2)")
+	fs.StringVar(&flagAPIPath, "api-path", "", "(Required) path api-root to the API to be generated (e.g., google/cloud/functions/v2)")
 }
 
 func addFlagBranch(fs *flag.FlagSet) {
@@ -43,14 +42,7 @@ func addFlagBranch(fs *flag.FlagSet) {
 }
 
 func addFlagLanguage(fs *flag.FlagSet) {
-	fs.StringVar(&flagLanguage, "language", "", "language to generate code for")
-	fs.Func("language", "", func(language string) error {
-		if !supportedLanguages[language] {
-			return fmt.Errorf("invalid -language flag specified: %q", language)
-		}
-		flagLanguage = language
-		return nil
-	})
+	fs.StringVar(&flagLanguage, "language", "", "(Required) language to generate code for")
 }
 
 var supportedLanguages = map[string]bool{
