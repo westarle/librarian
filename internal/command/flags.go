@@ -42,7 +42,7 @@ func addFlagBranch(fs *flag.FlagSet) {
 }
 
 func addFlagLanguage(fs *flag.FlagSet) {
-  fs.StringVar(&flagLanguage, "language", "", "(Required) language to generate code for")
+	fs.StringVar(&flagLanguage, "language", "", "(Required) language to generate code for")
 }
 
 var supportedLanguages = map[string]bool{
