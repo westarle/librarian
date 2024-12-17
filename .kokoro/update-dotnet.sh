@@ -30,6 +30,14 @@ install_go() {
     source ~/.bashrc
 }
 
+reduce_noise() {
+    CI=true
+    export CI
+}
+
 install_go
+reduce_noise
+
+gcloud auth configure-docker us-central1-docker.pkg.dev
 cd github/generator
 go run ./cmd/generator update-repo -language=dotnet
