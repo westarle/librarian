@@ -140,13 +140,14 @@ var CmdConfigure = &Command{
 		if err := os.CopyFS(languageRepo.Dir, os.DirFS(outputDir)); err != nil {
 			return err
 		}
+		msg := fmt.Sprintf("Configured API %s", flagAPIPath) // TODO: Improve info using googleapis commits and version info
+		if err := commitAll(ctx, languageRepo, msg); err != nil {
+			return err
+		}
 		if err := container.Build(ctx, image, "repo-root", languageRepo.Dir, flagAPIPath); err != nil {
 			return err
 		}
 
-		if err := commit(); err != nil {
-			return err
-		}
 		return push()
 	},
 }
@@ -276,10 +277,18 @@ var CmdUpdateRepo = &Command{
 		if err := os.CopyFS(languageRepo.Dir, os.DirFS(outputDir)); err != nil {
 			return err
 		}
-		if err := container.Build(ctx, image, "repo-root", languageRepo.Dir, flagAPIPath); err != nil {
+
+		var msg string // TODO: Improve info using googleapis commits and version info
+		if flagAPIPath == "" {
+			msg = "Regenerated all APIs"
+		} else {
+			msg = fmt.Sprintf("Regenerated API %s", flagAPIPath)
+		}
+		if err := commitAll(ctx, languageRepo, msg); err != nil {
 			return err
 		}
-		if err := commit(); err != nil {
+
+		if err := container.Build(ctx, image, "repo-root", languageRepo.Dir, flagAPIPath); err != nil {
 			return err
 		}
 		return push()
@@ -326,12 +335,26 @@ func createTmpWorkingRoot(t time.Time) (string, error) {
 	return path, nil
 }
 
-func commit() error {
-	return fmt.Errorf("commit is not implemented")
+// No commit is made if there are no file modifications.
+func commitAll(ctx context.Context, repo *gitrepo.Repo, msg string) error {
+	status, err := gitrepo.AddAll(ctx, repo)
+	if err != nil {
+		return err
+	}
+	if status.IsClean() {
+		slog.Info("No modifications to commit.")
+		return nil
+	}
+
+	gitrepo.PrintStatus(ctx, repo)
+	return gitrepo.Commit(ctx, repo, msg)
 }
 
 func push() error {
-	return fmt.Errorf("push is not implemented")
+	if flagPush {
+		return fmt.Errorf("push is not implemented")
+	}
+	return nil
 }
 
 var Commands = []*Command{
