@@ -121,9 +121,9 @@ pub trait SecretManagerService: std::fmt::Debug + Send + Sync {
 
 }
 
-/// All implementations of [crate::traits::SecretManagerService] also implement [SecretManagerService].
+/// All implementations of [crate::stubs::SecretManagerService] also implement [SecretManagerService].
 #[async_trait::async_trait]
-impl<T: crate::traits::SecretManagerService> SecretManagerService for T {
+impl<T: crate::stubs::SecretManagerService> SecretManagerService for T {
     /// Forwards the call to the implementation provided by `T`.
     async fn list_secrets(
         &self,
