@@ -29,6 +29,7 @@ var (
 	flagOutput      string
 	flagPush        bool
 	flagRepoRoot    string
+	flagSkipBuild   bool
 	flagWorkRoot    string
 )
 
@@ -70,6 +71,10 @@ func addFlagPush(fs *flag.FlagSet) {
 
 func addFlagRepoRoot(fs *flag.FlagSet) {
 	fs.StringVar(&flagRepoRoot, "repo-root", "", "Repository root. When this is not specified, the language repo will be cloned.")
+}
+
+func addFlagSkipBuild(fs *flag.FlagSet) {
+	fs.BoolVar(&flagSkipBuild, "skipBuild", false, "when create release PR if this is set to true do not perform build/integration tests")
 }
 
 func addFlagWorkRoot(fs *flag.FlagSet) {

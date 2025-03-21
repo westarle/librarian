@@ -224,10 +224,13 @@ func PrintStatus(ctx context.Context, repo *Repo) error {
 // Returns the commits in an API rooted at the given path,
 // stopping looking at the given commit (which is not included in the results).
 // The returned commits are ordered such that the most recent commit is first.
-func GetApiCommits(ctx context.Context, repo *Repo, path string, commit string) ([]object.Commit, error) {
+func GetApiCommits(repo *Repo, path string, commit string, retrieveAfterTimestamp *time.Time) ([]object.Commit, error) {
 	commits := []object.Commit{}
 	finalHash := plumbing.NewHash(commit)
 	logOptions := git.LogOptions{Order: git.LogOrderCommitterTime}
+	if retrieveAfterTimestamp != nil {
+		logOptions.Since = retrieveAfterTimestamp
+	}
 	logIterator, err := repo.repo.Log(&logOptions)
 	if err != nil {
 		return nil, err
@@ -284,6 +287,22 @@ func GetApiCommits(ctx context.Context, repo *Repo, path string, commit string) 
 	return commits, nil
 }
 
+// Returns all commits since tagName that contains files in path
+func GetApiCommitsSinceTagForSource(repo *Repo, path, tagName string) ([]object.Commit, error) {
+	tagRef, err := repo.repo.Tag(tagName)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to find tag %s: %w", tagName, err)
+	}
+
+	tagCommit, err := repo.repo.CommitObject(tagRef.Hash())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get commit object for tag %s: %w", tagName, err)
+	}
+
+	return GetApiCommits(repo, path, tagCommit.Hash.String(), &tagCommit.Committer.When)
+}
+
 // Creates a branch with the given name in the default remote.
 func PushBranch(ctx context.Context, repo *Repo, remoteBranch string, accessToken string) error {
 	headRef, err := repo.repo.Head()
@@ -308,7 +327,7 @@ func PushBranch(ctx context.Context, repo *Repo, remoteBranch string, accessToke
 
 // Creates a pull request in the remote repo. At the moment this requires a single remote to be
 // configured, which must have a GitHub HTTPS URL. We assume a base branch of "main".
-func CreatePullRequest(ctx context.Context, repo *Repo, remoteBranch string, accessToken string, title string) error {
+func CreatePullRequest(ctx context.Context, repo *Repo, remoteBranch string, accessToken string, title string, body string) error {
 	remotes, err := repo.repo.Remotes()
 	if err != nil {
 		return err
@@ -326,13 +345,17 @@ func CreatePullRequest(ctx context.Context, repo *Repo, remoteBranch string, acc
 	pathParts := strings.Split(remotePath, "/")
 	organization := pathParts[0]
 	repoName := pathParts[1]
+	repoName = strings.TrimSuffix(repoName, ".git")
 
+	if body == "" {
+		body = "Regenerated all changed APIs. See individual commits for details."
+	}
 	gitHubClient := github.NewClient(nil).WithAuthToken(accessToken)
 	newPR := &github.NewPullRequest{
 		Title:               &title,
 		Head:                &remoteBranch,
 		Base:                github.Ptr("main"),
-		Body:                github.Ptr("Regenerated all changed APIs. See individual commits for details."),
+		Body:                github.Ptr(body),
 		MaintainerCanModify: github.Ptr(true),
 	}
 
