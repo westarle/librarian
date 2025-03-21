@@ -32,8 +32,45 @@ func Clean(ctx context.Context, image, repoRoot, apiPath string) error {
 	return runClean(image, repoRoot, apiPath)
 }
 
-func Build(image, rootOptionName, root, pathName, path string) error {
-	return runBuild(image, rootOptionName, root, pathName, path)
+func BuildRaw(image, generatorOutput, apiPath string) error {
+	if image == "" {
+		return fmt.Errorf("image cannot be empty")
+	}
+	if generatorOutput == "" {
+		return fmt.Errorf("generatorOutput cannot be empty")
+	}
+	if apiPath == "" {
+		return fmt.Errorf("apiPath cannot be empty")
+	}
+	mounts := []string{
+		fmt.Sprintf("%s:/generator-output", generatorOutput),
+	}
+	containerArgs := []string{
+		"build-raw",
+		"--generator-output=/generator-output",
+		fmt.Sprintf("--api-path=%s", apiPath),
+	}
+	return runDocker(image, mounts, containerArgs)
+}
+
+func BuildLibrary(image, repoRoot, libraryId string) error {
+	if image == "" {
+		return fmt.Errorf("image cannot be empty")
+	}
+	if repoRoot == "" {
+		return fmt.Errorf("repoRoot cannot be empty")
+	}
+	mounts := []string{
+		fmt.Sprintf("%s:/repo", repoRoot),
+	}
+	containerArgs := []string{
+		"build-library",
+		"--repo-root=/repo",
+	}
+	if libraryId != "" {
+		containerArgs = append(containerArgs, fmt.Sprintf("--library-id=%s", libraryId))
+	}
+	return runDocker(image, mounts, containerArgs)
 }
 
 func Configure(ctx context.Context, image, apiRoot, apiPath, generatorInput string) error {
@@ -134,29 +171,6 @@ func runClean(image, repoRoot, apiPath string) error {
 	return runDocker(image, mounts, containerArgs)
 }
 
-func runBuild(image, rootName, root, pathName, path string) error {
-	if image == "" {
-		return fmt.Errorf("image cannot be empty")
-	}
-	if rootName == "" {
-		return fmt.Errorf("rootName cannot be empty")
-	}
-	if root == "" {
-		return fmt.Errorf("root cannot be empty")
-	}
-	mounts := []string{
-		fmt.Sprintf("%s:/%s", root, rootName),
-	}
-	containerArgs := []string{
-		"build",
-		fmt.Sprintf("--%s=/%s", rootName, rootName),
-	}
-	if path != "" {
-		containerArgs = append(containerArgs, fmt.Sprintf("--%s=%s", pathName, path))
-	}
-	return runDocker(image, mounts, containerArgs)
-}
-
 func runDocker(image string, mounts []string, containerArgs []string) error {
 	mounts = maybeRelocateMounts(mounts)
 
@@ -203,8 +217,10 @@ func runCommand(c string, args ...string) error {
 	cmd := exec.Command(c, args...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
-	slog.Info(strings.Repeat("=", 80))
+	slog.Info(fmt.Sprintf("=== Docker start %s", strings.Repeat("=", 63)))
 	slog.Info(cmd.String())
 	slog.Info(strings.Repeat("-", 80))
-	return cmd.Run()
+	err := cmd.Run()
+	slog.Info(fmt.Sprintf("=== Docker end %s", strings.Repeat("=", 65)))
+	return err
 }
