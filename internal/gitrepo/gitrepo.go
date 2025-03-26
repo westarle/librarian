@@ -109,7 +109,7 @@ func AddAll(ctx context.Context, repo *Repo) (git.Status, error) {
 }
 
 // returns an error if there is nothing to commit
-func Commit(ctx context.Context, repo *Repo, msg string) error {
+func Commit(ctx context.Context, repo *Repo, msg string, userName, userEmail string) error {
 	worktree, err := repo.repo.Worktree()
 	if err != nil {
 		return err
@@ -122,10 +122,16 @@ func Commit(ctx context.Context, repo *Repo, msg string) error {
 	if status.IsClean() {
 		return fmt.Errorf("no modifications to commit")
 	}
-	commit, err := worktree.Commit(msg, &git.CommitOptions{
+	if userName == "" {
+		userName = "Google Cloud SDK"
+	}
+	if userEmail == "" {
+		userEmail = "noreply-cloudsdk@google.com"
+	}
+	hash, err := worktree.Commit(msg, &git.CommitOptions{
 		Author: &object.Signature{
-			Name:  "Google Cloud SDK",
-			Email: "noreply-cloudsdk@google.com",
+			Name:  userName,
+			Email: userEmail,
 			When:  time.Now(),
 		},
 	})
@@ -133,14 +139,9 @@ func Commit(ctx context.Context, repo *Repo, msg string) error {
 		return err
 	}
 
-	// Log commit object, if enabled
-	if slog.Default().Enabled(ctx, slog.LevelInfo.Level()) {
-		obj, err := repo.repo.CommitObject(commit)
-		if err != nil {
-			return err
-		}
-		slog.Info(fmt.Sprint(obj))
-	}
+	// Log commit hash (brief) and subject line (first line of commit)
+	subject := strings.Split(msg, "\n")[0]
+	slog.Info(fmt.Sprintf("Committed %s: '%s'", hash.String()[0:7], subject))
 	return nil
 }
 
@@ -250,6 +251,10 @@ func GetCommitsForPathsSinceCommit(repo *Repo, paths []string, sinceCommit strin
 		if commit.NumParents() != 1 {
 			return nil
 		}
+		parentCommit, err := commit.Parent(0)
+		if err != nil {
+			return err
+		}
 
 		// We perform filtering by finding out if the tree hash for the given
 		// path at the commit we're looking at is the same as the tree hash
@@ -257,30 +262,17 @@ func GetCommitsForPathsSinceCommit(repo *Repo, paths []string, sinceCommit strin
 		// option, it seems. In theory we should be able to remember our "current"
 		// commit for each path, but that's likely to be significantly more complex.
 		for _, candidatePath := range paths {
-			parentCommit, err := commit.Parent(0)
+			currentPathHash, err := getHashForPathOrEmpty(commit, candidatePath)
 			if err != nil {
 				return err
 			}
-			currentTree, err := commit.Tree()
+			parentPathHash, err := getHashForPathOrEmpty(parentCommit, candidatePath)
 			if err != nil {
 				return err
 			}
-			currentPathEntry, err := currentTree.FindEntry(candidatePath)
-			if err != nil {
-				return err
-			}
-			parentTree, err := parentCommit.Tree()
-			if err != nil {
-				return err
-			}
-			parentPathEntry, err := parentTree.FindEntry(candidatePath)
-			if err != nil {
-				return err
-			}
-
-			// If we've found a change, add it to our list of commits and proceed
-			// to the next commit.
-			if currentPathEntry.Hash != parentPathEntry.Hash {
+			// If we've found a change (including a path being added or removed),
+			// add it to our list of commits and proceed to the next commit.
+			if currentPathHash != parentPathHash {
 				commits = append(commits, *commit)
 				return nil
 			}
@@ -295,6 +287,23 @@ func GetCommitsForPathsSinceCommit(repo *Repo, paths []string, sinceCommit strin
 		return nil, fmt.Errorf("did not find commit %s when iterating", sinceCommit)
 	}
 	return commits, nil
+}
+
+// Returns the hash for a path at a given commit, or an empty string if the path
+// (file or directory) did not exist.
+func getHashForPathOrEmpty(commit *object.Commit, path string) (string, error) {
+	tree, err := commit.Tree()
+	if err != nil {
+		return "", err
+	}
+	treeEntry, err := tree.FindEntry(path)
+	if err == object.ErrEntryNotFound {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return treeEntry.Hash.String(), nil
 }
 
 // Returns all commits since tagName that contains files in path
