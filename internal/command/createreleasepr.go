@@ -26,12 +26,15 @@ import (
 	"time"
 
 	"github.com/googleapis/librarian/internal/container"
+	"github.com/googleapis/librarian/internal/utils"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/googleapis/librarian/internal/gitrepo"
 	"github.com/googleapis/librarian/internal/statepb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+const prNumberEnvVarName = "PR_NUMBER"
 
 type ReleasePrDescription struct {
 	Releases []string
@@ -48,6 +51,7 @@ var CmdCreateReleasePR = &Command{
 		if err := validatePush(); err != nil {
 			return err
 		}
+
 		startOfRun := time.Now()
 
 		languageRepo, inputDirectory, err := setupReleasePrFolders(startOfRun)
@@ -66,6 +70,7 @@ var CmdCreateReleasePR = &Command{
 		}
 
 		releaseID := fmt.Sprintf("release-%s", formatTimestamp(startOfRun))
+		utils.AppendToFile(flagEnvFile, fmt.Sprintf("%s=%s\n", releaseIDEnvVarName, releaseID))
 		prDescription, err := generateReleaseCommitForEachLibrary(languageRepo.Dir, languageRepo, inputDirectory, pipelineState, releaseID)
 		if err != nil {
 			return err
@@ -142,6 +147,9 @@ func generateReleasePr(ctx context.Context, repo *gitrepo.Repo, title, prDescrip
 			return err
 		}
 	}
+	if prMetadata != nil {
+		utils.AppendToFile(flagEnvFile, fmt.Sprintf("%s=%d\n", prNumberEnvVarName, prMetadata.Number))
+	}
 	return nil
 }
 
@@ -207,6 +215,13 @@ func generateReleaseCommitForEachLibrary(repoPath string, repo *gitrepo.Repo, in
 					}
 					continue
 				}
+				if err := container.IntegrationTestLibrary(flagImage, repoPath, library.Id); err != nil {
+					errorsInRelease = append(errorsInRelease, logPartialError(library.Id, err, "integration testing library"))
+					if err := gitrepo.CleanWorkingTree(repo); err != nil {
+						return nil, err
+					}
+					continue
+				}
 			}
 
 			// Update the pipeline state to record what we've released and when.
@@ -260,17 +275,8 @@ func formatReleaseNotes(commitMessages []*CommitMessage) string {
 }
 
 func createReleaseNotesFile(inputDirectory, libraryId, releaseVersion, releaseNotes string) error {
-	path := filepath.Join(inputDirectory, fmt.Sprintf("%s-%s-release-notes.txt", libraryId, releaseVersion))
 
-	file, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	_, err = file.WriteString(releaseNotes)
-	if err != nil {
-		return err
-	}
-	return nil
+	return utils.CreateAndWriteToFile(inputDirectory, fmt.Sprintf("%s-%s-release-notes.txt", libraryId, releaseVersion), releaseNotes)
 }
 
 func maybeAppendReleaseNotesSection(builder *strings.Builder, description string, lines []string) {

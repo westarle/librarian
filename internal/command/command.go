@@ -31,6 +31,8 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
+const releaseIDEnvVarName = "RELEASE_ID"
+
 type Command struct {
 	Name  string
 	Short string
@@ -264,6 +266,7 @@ func init() {
 		addFlagGitUserName,
 		addFlagRepoRoot,
 		addFlagSkipBuild,
+		addFlagEnvFile,
 	} {
 		fn(fs)
 	}
