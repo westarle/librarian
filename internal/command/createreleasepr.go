@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"github.com/googleapis/librarian/internal/container"
+	"github.com/googleapis/librarian/internal/githubrepo"
 	"github.com/googleapis/librarian/internal/utils"
 
 	"github.com/Masterminds/semver/v3"
@@ -114,14 +115,17 @@ func generateReleasePr(ctx *CommandContext, title, prDescription string, errorsI
 		slog.Info(fmt.Sprintf("Push not specified; would have created release PR with the following description:\n%s", prDescription))
 		return nil
 	}
+	gitHubRepo, err := gitrepo.GetGitHubRepoFromRemote(ctx.languageRepo)
+	if err != nil {
+		return err
+	}
 	prMetadata, err := pushAndCreatePullRequest(ctx, title, prDescription)
 	if err != nil {
 		slog.Warn(fmt.Sprintf("Received error trying to create release PR: '%s'", err))
 		return err
 	}
 	if errorsInGeneration {
-		gitHubAccessToken := os.Getenv(gitHubTokenEnvironmentVariable)
-		err = gitrepo.AddLabelToPullRequest(ctx.ctx, ctx.languageRepo, prMetadata.Number, "do-not-merge", gitHubAccessToken)
+		err = githubrepo.AddLabelToPullRequest(ctx.ctx, gitHubRepo, prMetadata.Number, "do-not-merge")
 		if err != nil {
 			slog.Warn(fmt.Sprintf("Received error trying to add label to PR: '%s'", err))
 			return err
