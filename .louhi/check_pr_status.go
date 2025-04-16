@@ -18,6 +18,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"log"
 	"log/slog"
 	"os"
 	"time"
@@ -60,8 +61,58 @@ func checkPRStatus(prNumber int, repoOwner string, repoName string, statusCheck 
 				slog.Info("PR is not mergable, will try again", "mergeable status", pr.GetMergeable(), "merged status", pr.GetMerged())
 				time.Sleep(pollInterval)
 			}
+		} else if statusCheck == "approved" {
+			if checkIfPrIsApproved(client, ctx, repoOwner, repoName, prNumber) {
+				slog.Info("PR is approved")
+				return
+			} else {
+				slog.Info("PR is not approved, will try again")
+				time.Sleep(pollInterval)
+			}
+		}
+
+	}
+}
+
+// Gets a list of reviews for a PR and checks if any current status is approved
+func checkIfPrIsApproved(client *github.Client, ctx context.Context, owner string, repo string, prNumber int) bool {
+	opt := &github.ListOptions{PerPage: 100}
+	var allReviews []*github.PullRequestReview
+	for {
+		reviews, resp, err := client.PullRequests.ListReviews(ctx, owner, repo, prNumber, opt)
+		if err != nil {
+			log.Fatalf("Error listing reviews: %v", err)
+			os.Exit(1)
+		}
+		allReviews = append(allReviews, reviews...)
+		if resp.NextPage == 0 {
+			break
+		}
+		opt.Page = resp.NextPage
+	}
+
+	isApproved := false
+	latestReviews := make(map[int64]*github.PullRequestReview)
+
+	for _, review := range allReviews {
+		if review.GetState() == "PENDING" {
+			continue
+		}
+
+		userID := review.GetUser().GetID()
+		// Need to ensure review is the latest for the user
+		if current, exists := latestReviews[userID]; !exists || review.GetSubmittedAt().After(current.GetSubmittedAt().Time) {
+			latestReviews[userID] = review
 		}
 	}
+
+	for _, review := range latestReviews {
+		if review.GetState() == "APPROVED" {
+			isApproved = true
+			break
+		}
+	}
+	return isApproved
 }
 
 func main() {
@@ -79,7 +130,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if (*statusCheck != "merged") && (*statusCheck != "mergeable") {
+	if (*statusCheck != "merged") && (*statusCheck != "mergeable") && (*statusCheck != "approved") {
 		slog.Error("Invalid status check type", "type", statusCheck)
 		os.Exit(1)
 	}
