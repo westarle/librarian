@@ -15,6 +15,7 @@
 package command
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -31,6 +32,7 @@ import (
 var CmdUpdateApis = &Command{
 	Name:  "update-apis",
 	Short: "Regenerate APIs in a language repo with new specifications.",
+	Run:   runUpdateAPIs,
 	flagFunctions: []func(fs *flag.FlagSet){
 		addFlagImage,
 		addFlagWorkRoot,
@@ -45,9 +47,14 @@ var CmdUpdateApis = &Command{
 		addFlagRepoUrl,
 		addFlagSecretsProject,
 	},
-	maybeGetLanguageRepo:    cloneOrOpenLanguageRepo,
-	maybeLoadStateAndConfig: loadRepoStateAndConfig,
-	execute:                 updateAPIs,
+}
+
+func runUpdateAPIs(ctx context.Context) error {
+	state, err := createContainerForLanguage(ctx)
+	if err != nil {
+		return err
+	}
+	return updateAPIs(state)
 }
 
 func updateAPIs(state *commandState) error {

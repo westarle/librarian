@@ -22,16 +22,17 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/googleapis/librarian/internal/container"
 	"github.com/googleapis/librarian/internal/githubrepo"
-	"github.com/googleapis/librarian/internal/gitrepo"
 	"github.com/googleapis/librarian/internal/statepb"
 )
 
 var CmdGenerate = &Command{
 	Name:  "generate",
 	Short: "Generate client library code for an API.",
+	Run:   runGenerate,
 	flagFunctions: []func(fs *flag.FlagSet){
 		addFlagImage,
 		addFlagWorkRoot,
@@ -43,16 +44,47 @@ var CmdGenerate = &Command{
 		addFlagRepoUrl,
 		addFlagSecretsProject,
 	},
-	// By default don't clone a language repo, we will clone later only if library exists in language repo.
-	maybeGetLanguageRepo: openOrCloneLanguageRepoIfLibraryExists,
-	// Currently, we don't load any repo state and config in the initial path.
-	// We should do so by moving the clone part to maybeGetLanguageRepo - because then we'll be set up
-	// with the right image etc.
-	maybeLoadStateAndConfig: loadRepoStateAndConfig,
-	execute:                 runGenerate,
 }
 
-func runGenerate(state *commandState) error {
+func runGenerate(ctx context.Context) error {
+	startTime := time.Now()
+	workRoot, err := createWorkRoot(startTime)
+	if err != nil {
+		return err
+	}
+	workRoot, err = resolveLibraryWorkRoot(workRoot)
+	if err != nil {
+		return err
+	}
+	repo, err := cloneOrOpenLanguageRepo(workRoot)
+	if err != nil {
+		return err
+	}
+
+	ps, config, err := loadRepoStateAndConfig(repo)
+	if err != nil {
+		return err
+	}
+
+	image := deriveImage(ps)
+	containerConfig, err := container.NewContainerConfig(ctx, workRoot, image, flagSecretsProject, config)
+	if err != nil {
+		return err
+	}
+
+	state := &commandState{
+		ctx:             ctx,
+		startTime:       startTime,
+		workRoot:        workRoot,
+		languageRepo:    repo,
+		pipelineConfig:  config,
+		pipelineState:   ps,
+		containerConfig: containerConfig,
+	}
+	return executeGenerate(state)
+}
+
+func executeGenerate(state *commandState) error {
 	if err := validateRequiredFlag("api-path", flagAPIPath); err != nil {
 		return err
 	}
@@ -115,17 +147,6 @@ func runGenerateCommand(state *commandState, outputDir string) (string, error) {
 		slog.Info(fmt.Sprintf("No matching library found (or no repo specified); performing raw generation for %s", flagAPIPath))
 		return "", container.GenerateRaw(state.containerConfig, apiRoot, outputDir, flagAPIPath)
 	}
-}
-
-// Checks if the library with the given API path exists in the repo specified either
-// by a URL or a local path, and opens or clones it if so.
-func openOrCloneLanguageRepoIfLibraryExists(workRoot string) (*gitrepo.Repo, error) {
-	workRoot, err := resolveLibraryWorkRoot(workRoot)
-	if err != nil {
-		return nil, err
-	}
-	// Otherwise (if the library *does* exist), clone or open it as normal.
-	return cloneOrOpenLanguageRepo(workRoot)
 }
 
 // resolveLibraryWorkRoot returns workRoot if the library for the given API
