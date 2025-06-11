@@ -21,24 +21,56 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 )
 
-var googleHeader = regexp.MustCompile(`^// Copyright 20\d\d Google LLC
+var doubleSlashHeader = regexp.MustCompile(`^// Copyright 20\d\d Google LLC
 //
 // Licensed under the Apache License, Version 2\.0 \(the "License"\);`)
 
+var shellHeader = regexp.MustCompile(`^#!/.*
+
+# Copyright 20\d\d Google LLC
+#
+# Licensed under the Apache License, Version 2\.0 \(the "License"\);`)
+
+var hashHeader = regexp.MustCompile(`^# Copyright 20\d\d Google LLC
+#
+# Licensed under the Apache License, Version 2\.0 \(the "License"\);`)
+
+var noHeaderRequiredFiles = []string{".github/CODEOWNERS", "go.sum", "go.mod", ".gitignore", "LICENSE", "renovate.json"}
+
 func TestHeaders(t *testing.T) {
 	sfs := os.DirFS(".")
-	fs.WalkDir(sfs, ".", func(path string, d fs.DirEntry, _ error) error {
+	fs.WalkDir(sfs, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
 		if d.IsDir() {
-			if d.Name() == "testdata" {
+			if d.Name() == "testdata" || d.Name() == ".git" {
 				return fs.SkipDir
 			}
 			return nil
 		}
-		if !strings.HasSuffix(path, ".go") {
+
+		var requiredHeader *regexp.Regexp
+		switch {
+		case strings.HasSuffix(path, ".go") || strings.HasSuffix(path, ".proto"):
+			requiredHeader = doubleSlashHeader
+		case strings.HasSuffix(path, ".sh"):
+			requiredHeader = shellHeader
+		case strings.HasSuffix(path, ".yaml") || strings.HasPrefix(path, "Dockerfile"):
+			requiredHeader = hashHeader
+		case strings.HasSuffix(path, ".md"):
+			return nil
+		case slices.Contains(noHeaderRequiredFiles, path):
+			return nil
+		default:
+			// Given the mixture of allow-lists and requirements, if there's a file which
+			// isn't covered, we report an error.
+			t.Errorf("%q: unknown header requirements", path)
 			return nil
 		}
 		f, err := sfs.Open(path)
@@ -46,7 +78,7 @@ func TestHeaders(t *testing.T) {
 			return err
 		}
 		defer f.Close()
-		if !googleHeader.MatchReader(bufio.NewReader(f)) {
+		if !requiredHeader.MatchReader(bufio.NewReader(f)) {
 			t.Errorf("%q: incorrect header", path)
 		}
 		return nil
