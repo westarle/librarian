@@ -188,7 +188,11 @@ func createReleasePR(state *commandState) error {
 	// Final steps if we've actually created a release PR.
 	// - We always add the do-not-merge label so that Librarian can merge later.
 	// - Add a result environment variable with the PR number, for the next stage of the process.
-	err = githubrepo.AddLabelToPullRequest(state.ctx, *prMetadata, DoNotMergeLabel)
+	ghClient, err := githubrepo.NewClient()
+	if err != nil {
+		return err
+	}
+	err = ghClient.AddLabelToPullRequest(state.ctx, prMetadata, DoNotMergeLabel)
 	if err != nil {
 		slog.Warn(fmt.Sprintf("Received error trying to add label to PR: '%s'", err))
 		return err
