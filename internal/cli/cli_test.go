@@ -17,7 +17,10 @@ package cli
 import (
 	"context"
 	"flag"
+	"fmt"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestParseAndSetFlags(t *testing.T) {
@@ -99,5 +102,25 @@ func TestRun(t *testing.T) {
 	}
 	if !executed {
 		t.Errorf("cmd.Run was not executed")
+	}
+}
+
+func TestUsage(t *testing.T) {
+	c := &Command{
+		Short: "test prints test information",
+		Usage: "test [flags]",
+		Long:  "Command test prints test information",
+	}
+
+	want := fmt.Sprintf(`%s
+
+Usage:
+  %s
+
+Flags:
+`, c.Long, c.Usage)
+	got := constructUsage(c.Long, c.Usage)
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("mismatch(-want + got):\n%s", diff)
 	}
 }
