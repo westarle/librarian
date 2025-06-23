@@ -99,7 +99,7 @@ func runPublishReleaseArtifacts(ctx context.Context) error {
 	return publishReleaseArtifacts(ctx, containerConfig)
 }
 
-func publishReleaseArtifacts(ctx context.Context, containerConfig *container.ContainerConfig) error {
+func publishReleaseArtifacts(ctx context.Context, containerConfig *container.Docker) error {
 	if err := validateRequiredFlag("tag-repo-url", flagTagRepoUrl); err != nil {
 		return err
 	}
@@ -136,7 +136,7 @@ func publishReleaseArtifacts(ctx context.Context, containerConfig *container.Con
 	return nil
 }
 
-func publishPackages(config *container.ContainerConfig, outputRoot string, releases []LibraryRelease) error {
+func publishPackages(config *container.Docker, outputRoot string, releases []LibraryRelease) error {
 	for _, release := range releases {
 		outputDir := filepath.Join(outputRoot, release.LibraryID)
 		if err := config.PublishLibrary(outputDir, release.LibraryID, release.Version); err != nil {

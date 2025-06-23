@@ -48,7 +48,7 @@ var networkEnabledContainerCommands = []ContainerCommand{
 	ContainerCommandPublishLibrary,
 }
 
-func (c *ContainerConfig) GenerateRaw(apiRoot, output, apiPath string) error {
+func (c *Docker) GenerateRaw(apiRoot, output, apiPath string) error {
 	if apiRoot == "" {
 		return fmt.Errorf("apiRoot cannot be empty")
 	}
@@ -70,7 +70,7 @@ func (c *ContainerConfig) GenerateRaw(apiRoot, output, apiPath string) error {
 	return c.runDocker(ContainerCommandGenerateRaw, mounts, commandArgs)
 }
 
-func (c *ContainerConfig) GenerateLibrary(apiRoot, output, generatorInput, libraryID string) error {
+func (c *Docker) GenerateLibrary(apiRoot, output, generatorInput, libraryID string) error {
 	if apiRoot == "" {
 		return fmt.Errorf("apiRoot cannot be empty")
 	}
@@ -97,7 +97,7 @@ func (c *ContainerConfig) GenerateLibrary(apiRoot, output, generatorInput, libra
 	return c.runDocker(ContainerCommandGenerateLibrary, mounts, commandArgs)
 }
 
-func (c *ContainerConfig) Clean(repoRoot, libraryID string) error {
+func (c *Docker) Clean(repoRoot, libraryID string) error {
 	if repoRoot == "" {
 		return fmt.Errorf("repoRoot cannot be empty")
 	}
@@ -113,7 +113,7 @@ func (c *ContainerConfig) Clean(repoRoot, libraryID string) error {
 	return c.runDocker(ContainerCommandClean, mounts, commandArgs)
 }
 
-func (c *ContainerConfig) BuildRaw(generatorOutput, apiPath string) error {
+func (c *Docker) BuildRaw(generatorOutput, apiPath string) error {
 	if generatorOutput == "" {
 		return fmt.Errorf("generatorOutput cannot be empty")
 	}
@@ -130,7 +130,7 @@ func (c *ContainerConfig) BuildRaw(generatorOutput, apiPath string) error {
 	return c.runDocker(ContainerCommandBuildRaw, mounts, commandArgs)
 }
 
-func (c *ContainerConfig) BuildLibrary(repoRoot, libraryId string) error {
+func (c *Docker) BuildLibrary(repoRoot, libraryId string) error {
 	if repoRoot == "" {
 		return fmt.Errorf("repoRoot cannot be empty")
 	}
@@ -147,7 +147,7 @@ func (c *ContainerConfig) BuildLibrary(repoRoot, libraryId string) error {
 	return c.runDocker(ContainerCommandBuildLibrary, mounts, commandArgs)
 }
 
-func (c *ContainerConfig) Configure(apiRoot, apiPath, generatorInput string) error {
+func (c *Docker) Configure(apiRoot, apiPath, generatorInput string) error {
 	if apiRoot == "" {
 		return fmt.Errorf("apiRoot cannot be empty")
 	}
@@ -169,7 +169,7 @@ func (c *ContainerConfig) Configure(apiRoot, apiPath, generatorInput string) err
 	return c.runDocker(ContainerCommandConfigure, mounts, commandArgs)
 }
 
-func (c *ContainerConfig) PrepareLibraryRelease(languageRepo, inputsDirectory, libId, releaseVersion string) error {
+func (c *Docker) PrepareLibraryRelease(languageRepo, inputsDirectory, libId, releaseVersion string) error {
 	commandArgs := []string{
 		"--repo-root=/repo",
 		fmt.Sprintf("--library-id=%s", libId),
@@ -184,7 +184,7 @@ func (c *ContainerConfig) PrepareLibraryRelease(languageRepo, inputsDirectory, l
 	return c.runDocker(ContainerCommandPrepareLibraryRelease, mounts, commandArgs)
 }
 
-func (c *ContainerConfig) IntegrationTestLibrary(languageRepo, libId string) error {
+func (c *Docker) IntegrationTestLibrary(languageRepo, libId string) error {
 	commandArgs := []string{
 		"--repo-root=/repo",
 		fmt.Sprintf("--library-id=%s", libId),
@@ -196,7 +196,7 @@ func (c *ContainerConfig) IntegrationTestLibrary(languageRepo, libId string) err
 	return c.runDocker(ContainerCommandIntegrationTestLibrary, mounts, commandArgs)
 }
 
-func (c *ContainerConfig) PackageLibrary(languageRepo, libId, outputDir string) error {
+func (c *Docker) PackageLibrary(languageRepo, libId, outputDir string) error {
 	commandArgs := []string{
 		"--repo-root=/repo",
 		"--output=/output",
@@ -210,7 +210,7 @@ func (c *ContainerConfig) PackageLibrary(languageRepo, libId, outputDir string) 
 	return c.runDocker(ContainerCommandPackageLibrary, mounts, commandArgs)
 }
 
-func (c *ContainerConfig) PublishLibrary(outputDir, libId, libVersion string) error {
+func (c *Docker) PublishLibrary(outputDir, libId, libVersion string) error {
 	commandArgs := []string{
 		"--package-output=/output",
 		fmt.Sprintf("--library-id=%s", libId),
@@ -223,7 +223,7 @@ func (c *ContainerConfig) PublishLibrary(outputDir, libId, libVersion string) er
 	return c.runDocker(ContainerCommandPublishLibrary, mounts, commandArgs)
 }
 
-func (c *ContainerConfig) runDocker(command ContainerCommand, mounts []string, commandArgs []string) error {
+func (c *Docker) runDocker(command ContainerCommand, mounts []string, commandArgs []string) error {
 	if c.Image == "" {
 		return fmt.Errorf("image cannot be empty")
 	}

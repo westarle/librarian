@@ -59,7 +59,7 @@ type commandState struct {
 	pipelineState *statepb.PipelineState
 
 	// containerConfig provides settings for running containerized commands.
-	containerConfig *container.ContainerConfig
+	containerConfig *container.Docker
 }
 
 func cloneOrOpenLanguageRepo(workRoot string) (*gitrepo.Repository, error) {

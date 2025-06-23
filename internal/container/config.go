@@ -20,7 +20,7 @@ import (
 	"github.com/googleapis/librarian/internal/statepb"
 )
 
-type ContainerConfig struct {
+type Docker struct {
 	// The Docker image to run.
 	Image string
 
@@ -28,12 +28,12 @@ type ContainerConfig struct {
 	env *EnvironmentProvider
 }
 
-func NewContainerConfig(ctx context.Context, workRoot, image, secretsProject string, pipelineConfig *statepb.PipelineConfig) (*ContainerConfig, error) {
+func NewContainerConfig(ctx context.Context, workRoot, image, secretsProject string, pipelineConfig *statepb.PipelineConfig) (*Docker, error) {
 	envProvider, err := newEnvironmentProvider(ctx, workRoot, secretsProject, pipelineConfig)
 	if err != nil {
 		return nil, err
 	}
-	return &ContainerConfig{
+	return &Docker{
 		Image: image,
 		env:   envProvider,
 	}, nil
