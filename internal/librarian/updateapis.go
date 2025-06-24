@@ -23,7 +23,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/googleapis/librarian/internal/cli"
 	"github.com/googleapis/librarian/internal/config"
 	"github.com/googleapis/librarian/internal/gitrepo"
@@ -278,7 +277,7 @@ func updateLibrary(state *commandState, apiRepo *gitrepo.Repository, outputRoot 
 	return nil
 }
 
-func createCommitMessage(libraryID string, commits []object.Commit) string {
+func createCommitMessage(libraryID string, commits []*gitrepo.Commit) string {
 	const PiperPrefix = "PiperOrigin-RevId: "
 	var builder strings.Builder
 
