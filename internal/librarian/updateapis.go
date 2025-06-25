@@ -101,7 +101,8 @@ func init() {
 }
 
 func runUpdateAPIs(ctx context.Context, cfg *config.Config) error {
-	state, err := createCommandStateForLanguage(ctx)
+	state, err := createCommandStateForLanguage(ctx, cfg.WorkRoot, cfg.RepoRoot, cfg.RepoURL, cfg.Language, cfg.Image,
+		os.Getenv(defaultRepositoryEnvironmentVariable), cfg.SecretsProject)
 	if err != nil {
 		return err
 	}
@@ -154,7 +155,7 @@ func updateAPIs(state *commandState, cfg *config.Config) error {
 	prContent := new(PullRequestContent)
 	// Perform "generate, clean, commit, build" on each library.
 	for _, library := range state.pipelineState.Libraries {
-		err := updateLibrary(state, apiRepo, outputDir, library, prContent, cfg.LibraryID)
+		err := updateLibrary(state, apiRepo, outputDir, library, prContent, cfg.LibraryID, cfg.GitUserName, cfg.GitUserEmail)
 		if err != nil {
 			return err
 		}
@@ -168,7 +169,8 @@ func updateAPIs(state *commandState, cfg *config.Config) error {
 	return err
 }
 
-func updateLibrary(state *commandState, apiRepo *gitrepo.Repository, outputRoot string, library *statepb.LibraryState, prContent *PullRequestContent, libraryID string) error {
+func updateLibrary(state *commandState, apiRepo *gitrepo.Repository, outputRoot string, library *statepb.LibraryState,
+	prContent *PullRequestContent, libraryID, gitUserName, gitUserEmail string) error {
 	cc := state.containerConfig
 	languageRepo := state.languageRepo
 
@@ -249,7 +251,8 @@ func updateLibrary(state *commandState, apiRepo *gitrepo.Repository, outputRoot 
 	} else {
 		msg = createCommitMessage(library.Id, commits)
 	}
-	if err := commitAll(languageRepo, msg); err != nil {
+	if err := commitAll(languageRepo, msg,
+		gitUserName, gitUserEmail); err != nil {
 		return err
 	}
 

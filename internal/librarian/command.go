@@ -113,13 +113,13 @@ func cloneOrOpenLanguageRepo(workRoot, repoRoot, repoURL, language string) (*git
 // ContainerState based on all of the above. This should be used by all commands
 // which always have a language repo. Commands which only conditionally use
 // language repos should construct the command state themselves.
-func createCommandStateForLanguage(ctx context.Context) (*commandState, error) {
+func createCommandStateForLanguage(ctx context.Context, workRootOverride, repoRoot, repoURL, language, imageOverride, defaultRepository, secretsProject string) (*commandState, error) {
 	startTime := time.Now()
-	workRoot, err := createWorkRoot(startTime, flagWorkRoot)
+	workRoot, err := createWorkRoot(startTime, workRootOverride)
 	if err != nil {
 		return nil, err
 	}
-	repo, err := cloneOrOpenLanguageRepo(workRoot, flagRepoRoot, flagRepoUrl, flagLanguage)
+	repo, err := cloneOrOpenLanguageRepo(workRoot, repoRoot, repoURL, language)
 	if err != nil {
 		return nil, err
 	}
@@ -129,8 +129,8 @@ func createCommandStateForLanguage(ctx context.Context) (*commandState, error) {
 		return nil, err
 	}
 
-	image := deriveImage(flagLanguage, flagImage, os.Getenv(defaultRepositoryEnvironmentVariable), ps)
-	containerConfig, err := docker.New(ctx, workRoot, image, flagSecretsProject, config)
+	image := deriveImage(language, imageOverride, defaultRepository, ps)
+	containerConfig, err := docker.New(ctx, workRoot, image, secretsProject, config)
 	if err != nil {
 		return nil, err
 	}
@@ -147,8 +147,8 @@ func createCommandStateForLanguage(ctx context.Context) (*commandState, error) {
 	return state, nil
 }
 
-func appendResultEnvironmentVariable(workRoot, name, value string) error {
-	envFile := flagEnvFile
+func appendResultEnvironmentVariable(workRoot, name, value, envFileOverride string) error {
+	envFile := envFileOverride
 	if envFile == "" {
 		envFile = filepath.Join(workRoot, "env-vars.txt")
 	}
@@ -227,7 +227,7 @@ func createWorkRoot(t time.Time, workRootOverride string) (string, error) {
 }
 
 // No commit is made if there are no file modifications.
-func commitAll(repo *gitrepo.Repository, msg string) error {
+func commitAll(repo *gitrepo.Repository, msg, userName, userEmail string) error {
 	status, err := repo.AddAll()
 	if err != nil {
 		return err
@@ -237,7 +237,7 @@ func commitAll(repo *gitrepo.Repository, msg string) error {
 		return nil
 	}
 
-	return repo.Commit(msg, flagGitUserName, flagGitUserEmail)
+	return repo.Commit(msg, userName, userEmail)
 }
 
 // Log details of an error which prevents a single API or library from being configured/released, but without
