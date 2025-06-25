@@ -21,6 +21,7 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -76,7 +77,7 @@ func runPublishReleaseArtifacts(ctx context.Context, cfg *config.Config) error {
 		return err
 	}
 	// Load the state and config from the artifact directory. These will have been created by create-release-artifacts.
-	ps, err := loadPipelineStateFile(filepath.Join(flagArtifactRoot, pipelineStateFile))
+	ps, err := loadPipelineStateFile(filepath.Join(cfg.ArtifactRoot, pipelineStateFile))
 	if err != nil {
 		return err
 	}
@@ -85,10 +86,11 @@ func runPublishReleaseArtifacts(ctx context.Context, cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
-	image := deriveImage(ps)
+
+	image := deriveImage(flagLanguage, flagImage, os.Getenv(defaultRepositoryEnvironmentVariable), ps)
 
 	startTime := time.Now()
-	workRoot, err := createWorkRoot(startTime)
+	workRoot, err := createWorkRoot(startTime, cfg.WorkRoot)
 	if err != nil {
 		return err
 	}
