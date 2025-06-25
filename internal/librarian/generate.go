@@ -193,7 +193,7 @@ func runGenerateCommand(state *commandState, apiRoot, apiPath, outputDir string)
 		if libraryID == "" {
 			return "", errors.New("bug in Librarian: Library not found during generation, despite being found in earlier steps")
 		}
-		generatorInput := filepath.Join(state.languageRepo.Dir, "generator-input")
+		generatorInput := filepath.Join(state.languageRepo.Dir, config.GeneratorInputDir)
 		slog.Info(fmt.Sprintf("Performing refined generation for library %s", libraryID))
 		return libraryID, state.containerConfig.GenerateLibrary(apiRoot, outputDir, generatorInput, libraryID)
 	} else {
@@ -202,7 +202,7 @@ func runGenerateCommand(state *commandState, apiRoot, apiPath, outputDir string)
 	}
 }
 
-// detectIfLibraryConfigured returns whether or not a library has been configured for
+// detectIfLibraryConfigured returns whether a library has been configured for
 // the requested API (as specified in apiPath). This is done by checking the local
 // pipeline state if repoRoot has been specified, or the remote pipeline state (just
 // by fetching the single file) if flatRepoUrl has been specified. If neither the repo
@@ -222,7 +222,7 @@ func detectIfLibraryConfigured(apiPath, repoURL, repoRoot, gitHubToken string) (
 		err           error
 	)
 	if repoRoot != "" {
-		pipelineState, err = loadPipelineStateFile(filepath.Join(repoRoot, "generator-input", pipelineStateFile))
+		pipelineState, err = loadPipelineStateFile(filepath.Join(repoRoot, config.GeneratorInputDir, pipelineStateFile))
 		if err != nil {
 			return false, err
 		}
