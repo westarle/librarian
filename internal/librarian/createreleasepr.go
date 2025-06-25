@@ -118,11 +118,12 @@ func init() {
 	addFlagSkipIntegrationTests(cmdCreateReleasePR.Flags)
 	addFlagEnvFile(cmdCreateReleasePR.Flags)
 	addFlagRepoUrl(cmdCreateReleasePR.Flags)
+	addFlagCi(cmdCreateReleasePR.Flags)
 }
 
 func runCreateReleasePR(ctx context.Context, cfg *config.Config) error {
 	state, err := createCommandStateForLanguage(ctx, cfg.WorkRoot, cfg.RepoRoot, cfg.RepoURL, cfg.Language, cfg.Image,
-		os.Getenv(defaultRepositoryEnvironmentVariable), cfg.SecretsProject)
+		os.Getenv(defaultRepositoryEnvironmentVariable), cfg.SecretsProject, cfg.CI)
 	if err != nil {
 		return err
 	}

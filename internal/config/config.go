@@ -84,6 +84,10 @@ type Config struct {
 	// Build is specified with the -build flag.
 	Build bool
 
+	// CI is the type of Continuous Integration (CI) environment in which
+	// the tool is executing.
+	CI string
+
 	// DockerHostRootDir specifies the host view of a mount point that is
 	// mounted as DockerMountRootDir from the Librarian view, when Librarian
 	// is running in Docker. For example, if Librarian has been run via a command

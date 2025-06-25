@@ -58,7 +58,7 @@ type commandState struct {
 	containerConfig *docker.Docker
 }
 
-func cloneOrOpenLanguageRepo(workRoot, repoRoot, repoURL, language string) (*gitrepo.Repository, error) {
+func cloneOrOpenLanguageRepo(workRoot, repoRoot, repoURL, language, ci string) (*gitrepo.Repository, error) {
 	var languageRepo *gitrepo.Repository
 	if repoRoot != "" && repoURL != "" {
 		return nil, errors.New("do not specify both repo-root and repo-url")
@@ -73,6 +73,7 @@ func cloneOrOpenLanguageRepo(workRoot, repoRoot, repoURL, language string) (*git
 			Dir:        repoPath,
 			MaybeClone: true,
 			RemoteURL:  repoURL,
+			CI:         ci,
 		})
 	}
 	if repoRoot == "" {
@@ -82,6 +83,7 @@ func cloneOrOpenLanguageRepo(workRoot, repoRoot, repoURL, language string) (*git
 			Dir:        repoPath,
 			MaybeClone: true,
 			RemoteURL:  languageRepoURL,
+			CI:         ci,
 		})
 	}
 	absRepoRoot, err := filepath.Abs(repoRoot)
@@ -90,6 +92,7 @@ func cloneOrOpenLanguageRepo(workRoot, repoRoot, repoURL, language string) (*git
 	}
 	languageRepo, err = gitrepo.NewRepository(&gitrepo.RepositoryOptions{
 		Dir: absRepoRoot,
+		CI:  ci,
 	})
 	if err != nil {
 		return nil, err
@@ -110,13 +113,13 @@ func cloneOrOpenLanguageRepo(workRoot, repoRoot, repoURL, language string) (*git
 // ContainerState based on all of the above. This should be used by all commands
 // which always have a language repo. Commands which only conditionally use
 // language repos should construct the command state themselves.
-func createCommandStateForLanguage(ctx context.Context, workRootOverride, repoRoot, repoURL, language, imageOverride, defaultRepository, secretsProject string) (*commandState, error) {
+func createCommandStateForLanguage(ctx context.Context, workRootOverride, repoRoot, repoURL, language, imageOverride, defaultRepository, secretsProject, ci string) (*commandState, error) {
 	startTime := time.Now()
 	workRoot, err := createWorkRoot(startTime, workRootOverride)
 	if err != nil {
 		return nil, err
 	}
-	repo, err := cloneOrOpenLanguageRepo(workRoot, repoRoot, repoURL, language)
+	repo, err := cloneOrOpenLanguageRepo(workRoot, repoRoot, repoURL, language, ci)
 	if err != nil {
 		return nil, err
 	}

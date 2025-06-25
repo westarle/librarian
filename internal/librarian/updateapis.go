@@ -96,11 +96,12 @@ func init() {
 	addFlagRepoRoot(cmdUpdateApis.Flags)
 	addFlagRepoUrl(cmdUpdateApis.Flags)
 	addFlagSecretsProject(cmdUpdateApis.Flags)
+	addFlagCi(cmdUpdateApis.Flags)
 }
 
 func runUpdateAPIs(ctx context.Context, cfg *config.Config) error {
 	state, err := createCommandStateForLanguage(ctx, cfg.WorkRoot, cfg.RepoRoot, cfg.RepoURL, cfg.Language, cfg.Image,
-		os.Getenv(defaultRepositoryEnvironmentVariable), cfg.SecretsProject)
+		os.Getenv(defaultRepositoryEnvironmentVariable), cfg.SecretsProject, cfg.CI)
 	if err != nil {
 		return err
 	}
@@ -112,7 +113,7 @@ func updateAPIs(ctx context.Context, state *commandState, cfg *config.Config) er
 	cleanWorkingTreePostGeneration := true
 	if cfg.APIRoot == "" {
 		var err error
-		apiRepo, err = cloneGoogleapis(state.workRoot)
+		apiRepo, err = cloneGoogleapis(state.workRoot, cfg.CI)
 		if err != nil {
 			return err
 		}
@@ -125,6 +126,7 @@ func updateAPIs(ctx context.Context, state *commandState, cfg *config.Config) er
 		}
 		apiRepo, err = gitrepo.NewRepository(&gitrepo.RepositoryOptions{
 			Dir: apiRoot,
+			CI:  cfg.CI,
 		})
 		if err != nil {
 			return err
