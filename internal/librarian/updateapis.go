@@ -102,7 +102,7 @@ func init() {
 }
 
 func runUpdateAPIs(ctx context.Context, cfg *config.Config) error {
-	state, err := createCommandStateForLanguage(ctx, cfg.WorkRoot, cfg.RepoRoot, cfg.RepoURL, cfg.Language, cfg.Image,
+	state, err := createCommandStateForLanguage(cfg.WorkRoot, cfg.RepoRoot, cfg.RepoURL, cfg.Language, cfg.Image,
 		cfg.LibrarianRepository, cfg.SecretsProject, cfg.CI)
 	if err != nil {
 		return err
@@ -157,7 +157,7 @@ func updateAPIs(ctx context.Context, state *commandState, cfg *config.Config) er
 	prContent := new(PullRequestContent)
 	// Perform "generate, clean, commit, build" on each library.
 	for _, library := range state.pipelineState.Libraries {
-		err := updateLibrary(state, cfg, apiRepo, outputDir, library, prContent)
+		err := updateLibrary(ctx, state, cfg, apiRepo, outputDir, library, prContent)
 		if err != nil {
 			return err
 		}
@@ -173,7 +173,7 @@ func updateAPIs(ctx context.Context, state *commandState, cfg *config.Config) er
 	return err
 }
 
-func updateLibrary(state *commandState, cfg *config.Config, apiRepo *gitrepo.Repository, outputRoot string, library *statepb.LibraryState,
+func updateLibrary(ctx context.Context, state *commandState, cfg *config.Config, apiRepo *gitrepo.Repository, outputRoot string, library *statepb.LibraryState,
 	prContent *PullRequestContent) error {
 	cc := state.containerConfig
 	languageRepo := state.languageRepo
@@ -221,11 +221,11 @@ func updateLibrary(state *commandState, cfg *config.Config, apiRepo *gitrepo.Rep
 		return err
 	}
 
-	if err := cc.GenerateLibrary(cfg, apiRepo.Dir, outputDir, generatorInput, library.Id); err != nil {
+	if err := cc.GenerateLibrary(ctx, cfg, apiRepo.Dir, outputDir, generatorInput, library.Id); err != nil {
 		addErrorToPullRequest(prContent, library.Id, err, "generating")
 		return nil
 	}
-	if err := cc.Clean(cfg, languageRepo.Dir, library.Id); err != nil {
+	if err := cc.Clean(ctx, cfg, languageRepo.Dir, library.Id); err != nil {
 		addErrorToPullRequest(prContent, library.Id, err, "cleaning")
 		// Clean up any changes before starting the next iteration.
 		if err := languageRepo.CleanWorkingTree(); err != nil {
@@ -263,7 +263,7 @@ func updateLibrary(state *commandState, cfg *config.Config, apiRepo *gitrepo.Rep
 	// Once we've committed, we can build - but then check that nothing has changed afterwards.
 	// We consider a "something changed" error as fatal, whereas a build error just needs to
 	// undo the commit, report the failure and continue
-	buildErr := cc.BuildLibrary(cfg, languageRepo.Dir, library.Id)
+	buildErr := cc.BuildLibrary(ctx, cfg, languageRepo.Dir, library.Id)
 	clean, err := languageRepo.IsClean()
 	if err != nil {
 		return err
