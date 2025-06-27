@@ -20,6 +20,7 @@ linters:
   # See https://golangci-lint.run/usage/linters for details.
   default: none
   enable:
+    - containedctx
     - fatcontext
     - govet
     - ineffassign
