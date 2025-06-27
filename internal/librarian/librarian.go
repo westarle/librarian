@@ -67,5 +67,8 @@ func Run(ctx context.Context, arg ...string) error {
 		return err
 	}
 	slog.Info("librarian", "arguments", arg)
+	if err := cmd.Config.SetupUser(); err != nil {
+		return fmt.Errorf("failed to setup user config: %w", err)
+	}
 	return cmd.Run(ctx, cmd.Config)
 }
