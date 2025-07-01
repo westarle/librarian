@@ -108,21 +108,22 @@ func init() {
 	fs := cmdCreateReleasePR.Flags
 	cfg := cmdCreateReleasePR.Config
 
+	addFlagEnvFile(fs, cfg)
 	addFlagImage(fs, cfg)
-	addFlagSecretsProject(fs, cfg)
-	addFlagWorkRoot(fs, cfg)
-	addFlagLibraryID(fs, cfg)
-	addFlagLibraryVersion(fs, cfg)
-	addFlagPush(fs, cfg)
 	addFlagGitUserEmail(fs, cfg)
 	addFlagGitUserName(fs, cfg)
-	addFlagSkipIntegrationTests(fs, cfg)
-	addFlagEnvFile(fs, cfg)
+	addFlagLibraryID(fs, cfg)
+	addFlagLibraryVersion(fs, cfg)
 	addFlagRepo(fs, cfg)
+	addFlagProject(fs, cfg)
+	addFlagPush(fs, cfg)
+	addFlagSkipIntegrationTests(fs, cfg)
+	addFlagWorkRoot(fs, cfg)
 }
 
 func runCreateReleasePR(ctx context.Context, cfg *config.Config) error {
-	state, err := createCommandStateForLanguage(cfg.WorkRoot, cfg.Repo, cfg.Image, cfg.SecretsProject, cfg.CI, cfg.UserUID, cfg.UserGID)
+	state, err := createCommandStateForLanguage(cfg.WorkRoot, cfg.Repo,
+		cfg.Image, cfg.Project, cfg.CI, cfg.UserUID, cfg.UserGID)
 	if err != nil {
 		return err
 	}

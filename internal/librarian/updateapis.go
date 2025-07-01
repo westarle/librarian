@@ -92,15 +92,15 @@ func init() {
 	addFlagGitUserName(fs, cfg)
 	addFlagImage(fs, cfg)
 	addFlagLibraryID(fs, cfg)
-	addFlagPush(fs, cfg)
 	addFlagRepo(fs, cfg)
-	addFlagSecretsProject(fs, cfg)
+	addFlagProject(fs, cfg)
+	addFlagPush(fs, cfg)
 	addFlagSource(fs, cfg)
 	addFlagWorkRoot(fs, cfg)
 }
 
 func runUpdateAPIs(ctx context.Context, cfg *config.Config) error {
-	state, err := createCommandStateForLanguage(cfg.WorkRoot, cfg.Repo, cfg.Image, cfg.SecretsProject, cfg.CI, cfg.UserUID, cfg.UserGID)
+	state, err := createCommandStateForLanguage(cfg.WorkRoot, cfg.Repo, cfg.Image, cfg.Project, cfg.CI, cfg.UserUID, cfg.UserGID)
 	if err != nil {
 		return err
 	}
