@@ -104,7 +104,7 @@ func cloneOrOpenLanguageRepo(workRoot, repo, ci string) (*gitrepo.Repository, er
 // ContainerState based on all of the above. This should be used by all commands
 // which always have a language repo. Commands which only conditionally use
 // language repos should construct the command state themselves.
-func createCommandStateForLanguage(workRootOverride, repo, language, imageOverride, defaultRepository, secretsProject, ci, uid, gid string) (*commandState, error) {
+func createCommandStateForLanguage(workRootOverride, repo, imageOverride, secretsProject, ci, uid, gid string) (*commandState, error) {
 	startTime := time.Now()
 	workRoot, err := createWorkRoot(startTime, workRootOverride)
 	if err != nil {
@@ -120,7 +120,10 @@ func createCommandStateForLanguage(workRootOverride, repo, language, imageOverri
 		return nil, err
 	}
 
-	image := deriveImage(language, imageOverride, defaultRepository, ps)
+	image, err := deriveImage(imageOverride, ps)
+	if err != nil {
+		return nil, err
+	}
 	containerConfig, err := docker.New(workRoot, image, secretsProject, uid, gid, config)
 	if err != nil {
 		return nil, err
@@ -146,24 +149,19 @@ func appendResultEnvironmentVariable(workRoot, name, value, envFileOverride stri
 	return appendToFile(envFile, fmt.Sprintf("%s=%s\n", name, value))
 }
 
-func deriveImage(language, imageOverride, defaultRepository string, state *statepb.PipelineState) string {
+func deriveImage(imageOverride string, state *statepb.PipelineState) (string, error) {
 	if imageOverride != "" {
-		return imageOverride
+		return imageOverride, nil
 	}
-
-	relativeImage := fmt.Sprintf("google-cloud-%s-generator", language)
-
-	var tag string
 	if state == nil {
-		tag = "latest"
-	} else {
-		tag = state.ImageTag
+		return "", nil
 	}
-	if defaultRepository == "" {
-		return fmt.Sprintf("%s:%s", relativeImage, tag)
-	} else {
-		return fmt.Sprintf("%s/%s:%s", defaultRepository, relativeImage, tag)
+	// TODO(https://github.com/googleapis/librarian/issues/326):
+	// use image from state.yaml when switch to this config file. see go/librarian:cli-reimagined
+	if state.ImageTag == "" {
+		return "", errors.New("pipeline state does not have image specified and no override was provided")
 	}
+	return state.ImageTag, nil
 }
 
 // Finds a library which includes code generated from the given API path.

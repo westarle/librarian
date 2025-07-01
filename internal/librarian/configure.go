@@ -16,26 +16,21 @@ package librarian
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 
 	"github.com/googleapis/librarian/internal/cli"
 	"github.com/googleapis/librarian/internal/config"
-	"github.com/googleapis/librarian/internal/statepb"
-	"gopkg.in/yaml.v3"
 )
 
 var cmdConfigure = &cli.Command{
 	Short:     "configure configures libraries for new APIs in a language",
-	UsageLine: "librarian configure -language=<language> [flags]",
+	UsageLine: "librarian configure [flags]",
 	Long: `
-Specify the language, and optional flags to use non-default repositories, e.g. for testing.
+Specify optional flags to use non-default repositories, e.g. for testing.
 A single API path may be specified if desired; otherwise all API paths will be checked.
 A pull request will only be created if -push is specified, in which case the LIBRARIAN_GITHUB_TOKEN
 environment variable must be populated with an access token which has write access to the
@@ -93,15 +88,13 @@ func init() {
 	addFlagSource(fs, cfg)
 	addFlagGitUserEmail(fs, cfg)
 	addFlagGitUserName(fs, cfg)
-	addFlagLanguage(fs, cfg)
 	addFlagPush(fs, cfg)
 	addFlagRepo(fs, cfg)
 	addFlagSecretsProject(fs, cfg)
 }
 
 func runConfigure(ctx context.Context, cfg *config.Config) error {
-	state, err := createCommandStateForLanguage(cfg.WorkRoot, cfg.Repo, cfg.Language,
-		cfg.Image, cfg.LibrarianRepository, cfg.SecretsProject, cfg.CI, cfg.UserUID, cfg.UserGID)
+	state, err := createCommandStateForLanguage(cfg.WorkRoot, cfg.Repo, cfg.Image, cfg.SecretsProject, cfg.CI, cfg.UserUID, cfg.UserGID)
 	if err != nil {
 		return err
 	}
@@ -132,128 +125,18 @@ func executeConfigure(ctx context.Context, state *commandState, cfg *config.Conf
 		}
 		apiRoot = absRoot
 	}
-	apiPaths, err := findApisToConfigure(apiRoot, state.pipelineState, cfg.Language, cfg.API)
-	if err != nil {
-		return err
-	}
+	apiPaths := []string{cfg.API}
 
 	prContent := PullRequestContent{}
 	for _, apiPath := range apiPaths {
-		err = configureApi(ctx, state, cfg, outputRoot, apiRoot, apiPath, &prContent)
+		err := configureApi(ctx, state, cfg, outputRoot, apiRoot, apiPath, &prContent)
 		if err != nil {
 			return err
 		}
 	}
 
-	_, err = createPullRequest(ctx, state, &prContent, "feat: API configuration", "", "config", cfg.GitHubToken, cfg.Push)
+	_, err := createPullRequest(ctx, state, &prContent, "feat: API configuration", "", "config", cfg.GitHubToken, cfg.Push)
 	return err
-}
-
-// Returns a collection of APIs to configure, either from the api flag,
-// or by examining the service config YAML files to find APIs which have requested libraries,
-// but which aren't yet configured.
-func findApisToConfigure(apiRoot string, state *statepb.PipelineState, language string, apiPath string) ([]string, error) {
-	languageSettingsName := language + "_settings"
-	if apiPath != "" {
-		return []string{apiPath}, nil
-	}
-	var apiPaths []string
-	err := filepath.WalkDir(apiRoot, func(path string, d fs.DirEntry, err error) error {
-		if d.Name() == ".git" {
-			return filepath.SkipDir
-		}
-		if err != nil {
-			return err
-		}
-		// TODO(https://github.com/googleapis/librarian/issues/551): validate that we only have a single yaml file per directory.
-		if !d.IsDir() && strings.HasSuffix(d.Name(), ".yaml") && !strings.HasSuffix(d.Name(), "gapic.yaml") {
-			apiPath, err := filepath.Rel(apiRoot, filepath.Dir(path))
-			if err != nil {
-				return err
-			}
-			// If we already generate this library, skip the rest of this directory.
-			if findLibraryIDByApiPath(state, apiPath) != "" || slices.Contains(state.IgnoredApiPaths, apiPath) {
-				return filepath.SkipDir
-			}
-
-			generate, err := shouldBeGenerated(path, languageSettingsName)
-			if err != nil {
-				return err
-			}
-			if generate {
-				apiPaths = append(apiPaths, apiPath)
-			}
-			// Whether we were configured, we can skip the rest of this directory.
-			return filepath.SkipDir
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return apiPaths, nil
-}
-
-// Loads a service config YAML file from the given path, and looks
-// for a set of language settings requesting that the API be generated
-// in the given language, with a destination of GITHUB or PACKAGE_MANAGER.
-func shouldBeGenerated(serviceYamlPath, languageSettingsName string) (bool, error) {
-	data, err := os.ReadFile(serviceYamlPath)
-	if err != nil {
-		return false, err
-	}
-	config := make(map[string]interface{})
-
-	err = yaml.Unmarshal(data, &config)
-	if err != nil {
-		return false, err
-	}
-
-	t, ok := config["type"].(string)
-	if !ok {
-		return false, nil
-	}
-	if t != "google.api.Service" {
-		return false, nil
-	}
-
-	publishing, ok := config["publishing"].(map[string]interface{})
-	if !ok {
-		return false, nil
-	}
-	librarySettings, ok := publishing["library_settings"].([]interface{})
-	if !ok {
-		return false, nil
-	}
-	if len(librarySettings) != 1 {
-		return false, errors.New("wrong number of library_settings in service config")
-	}
-	firstSettings, ok := librarySettings[0].(map[string]interface{})
-	if !ok {
-		return false, nil
-	}
-	languageSettings, ok := firstSettings[languageSettingsName].(map[string]interface{})
-	if !ok {
-		return false, nil
-	}
-
-	commonSettings, ok := languageSettings["common"].(map[string]interface{})
-	if !ok {
-		return false, nil
-	}
-	destinations, ok := commonSettings["destinations"].([]interface{})
-	if !ok {
-		return false, nil
-	}
-	for _, destination := range destinations {
-		destinationText, ok := destination.(string)
-		if ok {
-			if destinationText == "GITHUB" || destinationText == "PACKAGE_MANAGER" {
-				return true, nil
-			}
-		}
-	}
-	return false, nil
 }
 
 // configureAPI attempts to configure a single API. Steps taken:
