@@ -31,3 +31,7 @@ jobs:
     - run: go fmt ./...
     - name: Detect Changes
       run: git diff --exit-code
+    - name: Upload coverage report
+      uses: codecov/codecov-action@v5
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
