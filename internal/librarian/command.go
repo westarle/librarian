@@ -215,7 +215,12 @@ func createWorkRoot(t time.Time, workRootOverride string) (string, error) {
 }
 
 // No commit is made if there are no file modifications.
-func commitAll(repo *gitrepo.Repository, msg, userName, userEmail string) error {
+func commitAll(repo *gitrepo.Repository, msg, pushConfig string) error {
+	userEmail, userName, err := parsePushConfig(pushConfig)
+	if err != nil {
+		return err
+	}
+
 	status, err := repo.AddAll()
 	if err != nil {
 		return err
@@ -226,6 +231,16 @@ func commitAll(repo *gitrepo.Repository, msg, userName, userEmail string) error 
 	}
 
 	return repo.Commit(msg, userName, userEmail)
+}
+
+func parsePushConfig(pushConfig string) (string, string, error) {
+	parts := strings.Split(pushConfig, ",")
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("invalid pushConfig format: expected 'email,user', got %q", pushConfig)
+	}
+	userEmail := parts[0]
+	userName := parts[1]
+	return userEmail, userName, nil
 }
 
 func formatReleaseTag(libraryID, version string) string {

@@ -51,12 +51,9 @@ func addFlagEnvFile(fs *flag.FlagSet, cfg *config.Config) {
 	fs.StringVar(&cfg.EnvFile, "env-file", "", "full path to the file where the environment variables are stored. Defaults to env-vars.txt within the output")
 }
 
-func addFlagGitUserEmail(fs *flag.FlagSet, cfg *config.Config) {
-	fs.StringVar(&cfg.GitUserEmail, "git-user-email", "noreply-cloudsdk@google.com", "Email address to use in Git commits")
-}
-
-func addFlagGitUserName(fs *flag.FlagSet, cfg *config.Config) {
-	fs.StringVar(&cfg.GitUserName, "git-user-name", "Google Cloud SDK", "Display name to use in Git commits")
+func addFlagPushConfig(fs *flag.FlagSet, cfg *config.Config) {
+	// TODO(https://github.com/googleapis/librarian/issues/724):remove the default for push-config
+	fs.StringVar(&cfg.PushConfig, "push-config", "noreply-cloudsdk@google.com,Google Cloud SDK", "The user and email for Git commits, in the format \"user:email\"")
 }
 
 func addFlagImage(fs *flag.FlagSet, cfg *config.Config) {
