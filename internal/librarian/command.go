@@ -32,32 +32,6 @@ import (
 
 const releaseIDEnvVarName = "_RELEASE_ID"
 
-// commandState holds all necessary information for a command execution.
-type commandState struct {
-	// startTime records when the command began execution. This is used as a
-	// consistent timestamp for commands when necessary.
-	startTime time.Time
-
-	// workRoot is the base directory for all command operations. The default
-	// location is /tmp.
-	workRoot string
-
-	// languageRepo is the relevant language-specific Git repository, if
-	// applicable.
-	languageRepo *gitrepo.Repository
-
-	// pipelineConfig holds the pipeline configuration, loaded from the
-	// language repo if present.
-	pipelineConfig *statepb.PipelineConfig
-
-	// pipelineState holds the pipeline's current state, loaded from the
-	// language repo if present.
-	pipelineState *statepb.PipelineState
-
-	// containerConfig provides settings for running containerized commands.
-	containerConfig *docker.Docker
-}
-
 func cloneOrOpenLanguageRepo(workRoot, repo, ci string) (*gitrepo.Repository, error) {
 	if repo == "" {
 		return nil, errors.New("repo must be specified")
@@ -104,40 +78,40 @@ func cloneOrOpenLanguageRepo(workRoot, repo, ci string) (*gitrepo.Repository, er
 // ContainerState based on all of the above. This should be used by all commands
 // which always have a language repo. Commands which only conditionally use
 // language repos should construct the command state themselves.
-func createCommandStateForLanguage(workRootOverride, repo, imageOverride, project, ci, uid, gid string) (*commandState, error) {
-	startTime := time.Now()
-	workRoot, err := createWorkRoot(startTime, workRootOverride)
+func createCommandStateForLanguage(workRootOverride, repo, imageOverride, project, ci, uid, gid string) (
+	startTime time.Time,
+	workRoot string,
+	languageRepo *gitrepo.Repository,
+	pipelineConfig *statepb.PipelineConfig,
+	pipelineState *statepb.PipelineState,
+	containerConfig *docker.Docker,
+	err error,
+) {
+	startTime = time.Now()
+	workRoot, err = createWorkRoot(startTime, workRootOverride)
 	if err != nil {
-		return nil, err
+		return
 	}
-	languageRepo, err := cloneOrOpenLanguageRepo(workRoot, repo, ci)
+	languageRepo, err = cloneOrOpenLanguageRepo(workRoot, repo, ci)
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	ps, config, err := loadRepoStateAndConfig(languageRepo)
+	pipelineState, pipelineConfig, err = loadRepoStateAndConfig(languageRepo)
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	image, err := deriveImage(imageOverride, ps)
+	image, err := deriveImage(imageOverride, pipelineState)
 	if err != nil {
-		return nil, err
+		return
 	}
-	containerConfig, err := docker.New(workRoot, image, project, uid, gid, config)
+	containerConfig, err = docker.New(workRoot, image, project, uid, gid, pipelineConfig)
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	state := &commandState{
-		startTime:       startTime,
-		workRoot:        workRoot,
-		languageRepo:    languageRepo,
-		pipelineConfig:  config,
-		pipelineState:   ps,
-		containerConfig: containerConfig,
-	}
-	return state, nil
+	return startTime, workRoot, languageRepo, pipelineConfig, pipelineState, containerConfig, nil
 }
 
 func appendResultEnvironmentVariable(workRoot, name, value, envFileOverride string) error {
