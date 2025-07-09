@@ -45,14 +45,6 @@ type Config struct {
 	// API Path is specified with the -api flag.
 	API string
 
-	// ArtifactRoot is the path to previously-created release artifacts to be published.
-	// It is only used by the publish-release-artifacts command, and is expected
-	// to be the output directory from a previous create-release-artifacts command.
-	// It is required for publish-release-artifacts.
-	//
-	// ArtifactRoot is specified with the -artifact-root flag.
-	ArtifactRoot string
-
 	// Branch is the branch name to use when working with git repositories. It is
 	// currently unused.
 	//
@@ -73,7 +65,7 @@ type Config struct {
 	// GitHub.
 	//
 	// GitHubToken is used by to configure, update-apis and update-image-tag commands,
-	// when Push is true. It is always used by publish-release-artifacts commands.
+	// when Push is true.
 	//
 	// GitHubToken is not specified by a flag, as flags are logged and the
 	// access token is sensitive information. Instead, it is fetched from the
@@ -205,15 +197,6 @@ type Config struct {
 	//
 	// Tag is specified with the -tag flag.
 	Tag string
-
-	// TagRepoURL is the GitHub repository to push the tag and create a release
-	// in. This is only used in the publish-release-artifacts command:
-	// when all artifacts have been published to package managers,
-	// documentation sites etc., tags/releases are created on GitHub, and
-	// TagRepoURL identifies this repository.
-	//
-	// TagRepoURL is specified with the -tag-repo-url flag.
-	TagRepoURL string
 
 	// UserGID is the group ID of the current user. It is used to run Docker
 	// containers with the same user, so that created files have the correct
