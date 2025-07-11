@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/googleapis/librarian/internal/config"
 	"github.com/googleapis/librarian/internal/gitrepo"
 )
@@ -43,13 +44,62 @@ func TestCommandUsage(t *testing.T) {
 	}
 }
 
+func TestFindLibraryByID(t *testing.T) {
+	lib1 := &config.LibraryState{ID: "lib1"}
+	lib2 := &config.LibraryState{ID: "lib2"}
+	stateWithLibs := &config.LibrarianState{
+		Libraries: []*config.LibraryState{lib1, lib2},
+	}
+	stateNoLibs := &config.LibrarianState{
+		Libraries: []*config.LibraryState{},
+	}
+
+	for _, test := range []struct {
+		name      string
+		state     *config.LibrarianState
+		libraryID string
+		want      *config.LibraryState
+	}{
+		{
+			name:      "found first library",
+			state:     stateWithLibs,
+			libraryID: "lib1",
+			want:      lib1,
+		},
+		{
+			name:      "found second library",
+			state:     stateWithLibs,
+			libraryID: "lib2",
+			want:      lib2,
+		},
+		{
+			name:      "not found",
+			state:     stateWithLibs,
+			libraryID: "lib3",
+			want:      nil,
+		},
+		{
+			name:      "empty libraries slice",
+			state:     stateNoLibs,
+			libraryID: "lib1",
+			want:      nil,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got := findLibraryByID(test.state, test.libraryID)
+			if diff := cmp.Diff(test.want, got); diff != "" {
+				t.Errorf("findLibraryByID() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestDeriveImage(t *testing.T) {
 	for _, test := range []struct {
 		name          string
 		imageOverride string
-		state         *config.PipelineState
+		state         *config.LibrarianState
 		want          string
-		wantErr       bool
 	}{
 		{
 			name:          "with image override, nil state",
@@ -60,7 +110,7 @@ func TestDeriveImage(t *testing.T) {
 		{
 			name:          "with image override, non-nil state",
 			imageOverride: "my/custom-image:v1",
-			state:         &config.PipelineState{ImageTag: "v1.2.3"},
+			state:         &config.LibrarianState{Image: "gcr.io/foo/bar:v1.2.3"},
 			want:          "my/custom-image:v1",
 		},
 		{
@@ -72,29 +122,13 @@ func TestDeriveImage(t *testing.T) {
 		{
 			name:          "no override, with state",
 			imageOverride: "",
-			state:         &config.PipelineState{ImageTag: "v1.2.3"},
-			want:          "v1.2.3",
-		},
-		{
-			name:          "no override, with state, empty tag",
-			imageOverride: "",
-			state:         &config.PipelineState{ImageTag: ""},
-			wantErr:       true,
+			state:         &config.LibrarianState{Image: "gcr.io/foo/bar:v1.2.3"},
+			want:          "gcr.io/foo/bar:v1.2.3",
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := deriveImage(test.imageOverride, test.state)
+			got := deriveImage(test.imageOverride, test.state)
 
-			if test.wantErr {
-				if err == nil {
-					t.Error("deriveImage() expected an error but got nil")
-				}
-				return
-			}
-			if err != nil {
-				t.Errorf("deriveImage() got unexpected error: %v", err)
-				return
-			}
 			if got != test.want {
 				t.Errorf("deriveImage() = %q, want %q", got, test.want)
 			}

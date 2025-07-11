@@ -16,7 +16,6 @@ package librarian
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -25,10 +24,10 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/googleapis/librarian/internal/config"
 	"github.com/googleapis/librarian/internal/gitrepo"
+	"gopkg.in/yaml.v3"
 )
 
 // mockContainerClient is a mock implementation of the ContainerClient interface for testing.
-
 type mockContainerClient struct {
 	ContainerClient
 	generateCalls int
@@ -48,65 +47,69 @@ func (m *mockContainerClient) Build(ctx context.Context, cfg *config.Config, bui
 func TestDetectIfLibraryConfigured(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
-		name          string
-		apiPath       string
-		repoPath      string
-		pipelineState *config.PipelineState
-		want          bool
-		wantErr       bool
+		name    string
+		api     string
+		repo    string
+		state   *config.LibrarianState
+		want    bool
+		wantErr bool
 	}{
 		{
-			name:    "no repo specified",
-			apiPath: "some/api",
+			name: "no repo specified",
+			api:  "some/api",
 		},
 		{
-			name:     "api path not in pipeline state",
-			apiPath:  "other/api",
-			repoPath: "some/repo",
-			pipelineState: &config.PipelineState{
+			name: "api not in state",
+			api:  "other/api",
+			repo: "some/repo",
+			state: &config.LibrarianState{
+				Image: "some/image:v1.2.3",
 				Libraries: []*config.LibraryState{
 					{
-						ID:       "some-library",
-						APIPaths: []string{"some/api"},
+						ID:          "some-library",
+						APIs:        []config.API{{Path: "some/api"}},
+						SourcePaths: []string{"src/a"},
 					},
 				},
 			},
 		},
 		{
-			name:     "api path in pipeline state",
-			apiPath:  "some/api",
-			repoPath: "some/repo",
-			pipelineState: &config.PipelineState{
+			name: "api in state",
+			api:  "some/api",
+			repo: "some/repo",
+			state: &config.LibrarianState{
+				Image: "some/image:v1.2.3",
 				Libraries: []*config.LibraryState{
 					{
-						ID:       "some-library",
-						APIPaths: []string{"some/api"},
+						ID:          "some-library",
+						APIs:        []config.API{{Path: "some/api"}},
+						SourcePaths: []string{"src/a"},
 					},
 				},
 			},
 			want: true,
 		},
 		{
-			name:     "pipeline state file does not exist",
-			apiPath:  "some/api",
-			repoPath: "some/repo",
-			wantErr:  true,
+			name:    "state file does not exist",
+			api:     "some/api",
+			repo:    "some/repo",
+			wantErr: true,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			var repo *gitrepo.Repository
-			if test.repoPath != "" {
+			if test.repo != "" {
 				repo = newTestGitRepo(t)
-				if test.pipelineState != nil {
+				if test.state != nil {
 					generatorInputDir := filepath.Join(repo.Dir, config.GeneratorInputDir)
 					if err := os.MkdirAll(generatorInputDir, 0755); err != nil {
 						t.Fatalf("os.MkdirAll(%q, 0755) = %v", generatorInputDir, err)
 					}
 					stateFile := filepath.Join(generatorInputDir, pipelineStateFile)
-					b, err := json.MarshalIndent(test.pipelineState, "", "  ")
+					b, err := yaml.Marshal(test.state)
 					if err != nil {
-						t.Fatalf("json.MarshalIndent = %v", err)
+						t.Fatalf("yaml.Marshal = %v", err)
 					}
 					if err := os.WriteFile(stateFile, b, 0644); err != nil {
 						t.Fatalf("os.WriteFile(%q, ...) = %v", stateFile, err)
@@ -116,8 +119,8 @@ func TestDetectIfLibraryConfigured(t *testing.T) {
 
 			r := &generateRunner{
 				cfg: &config.Config{
-					API:  test.apiPath,
-					Repo: test.repoPath,
+					API:  test.api,
+					Repo: test.repo,
 				},
 			}
 			if repo != nil {
@@ -140,23 +143,23 @@ func TestRunGenerateCommand(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		name              string
-		apiPath           string
+		api               string
 		repo              *gitrepo.Repository
-		state             *config.PipelineState
+		state             *config.LibrarianState
 		container         *mockContainerClient
 		wantLibraryID     string
 		wantErr           bool
 		wantGenerateCalls int
 	}{
 		{
-			name:    "works",
-			apiPath: "some/api",
-			repo:    newTestGitRepo(t),
-			state: &config.PipelineState{
+			name: "works",
+			api:  "some/api",
+			repo: newTestGitRepo(t),
+			state: &config.LibrarianState{
 				Libraries: []*config.LibraryState{
 					{
-						ID:       "some-library",
-						APIPaths: []string{"some/api"},
+						ID:   "some-library",
+						APIs: []config.API{{Path: "some/api"}},
 					},
 				},
 			},
@@ -166,19 +169,19 @@ func TestRunGenerateCommand(t *testing.T) {
 		},
 		{
 			name:      "missing repo",
-			apiPath:   "some/api",
+			api:       "some/api",
 			container: &mockContainerClient{},
 			wantErr:   true,
 		},
 		{
-			name:    "library not found in state",
-			apiPath: "other/api",
-			repo:    newTestGitRepo(t),
-			state: &config.PipelineState{
+			name: "library not found in state",
+			api:  "other/api",
+			repo: newTestGitRepo(t),
+			state: &config.LibrarianState{
 				Libraries: []*config.LibraryState{
 					{
-						ID:       "some-library",
-						APIPaths: []string{"some/api"},
+						ID:   "some-library",
+						APIs: []config.API{{Path: "some/api"}},
 					},
 				},
 			},
@@ -190,7 +193,7 @@ func TestRunGenerateCommand(t *testing.T) {
 			t.Parallel()
 			r := &generateRunner{
 				cfg: &config.Config{
-					API:    test.apiPath,
+					API:    test.api,
 					Source: t.TempDir(),
 				},
 				repo:            test.repo,
@@ -309,7 +312,21 @@ func TestNewGenerateRunner(t *testing.T) {
 			// We need to create a fake state and config file for the test to pass.
 			if test.cfg.Repo != "" && !isUrl(test.cfg.Repo) {
 				stateFile := filepath.Join(test.cfg.Repo, pipelineStateFile)
-				if err := os.WriteFile(stateFile, []byte("{}"), 0644); err != nil {
+				state := &config.LibrarianState{
+					Image: "some/image:v1.2.3",
+					Libraries: []*config.LibraryState{
+						{
+							ID:          "some-library",
+							APIs:        []config.API{{Path: "some/api"}},
+							SourcePaths: []string{"src/a"},
+						},
+					},
+				}
+				b, err := yaml.Marshal(state)
+				if err != nil {
+					t.Fatalf("yaml.Marshal() = %v", err)
+				}
+				if err := os.WriteFile(stateFile, b, 0644); err != nil {
 					t.Fatalf("os.WriteFile(%q, ...) = %v", stateFile, err)
 				}
 				configFile := filepath.Join(test.cfg.Repo, pipelineConfigFile)
@@ -360,9 +377,9 @@ func TestGenerateRun(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		name              string
-		apiPath           string
+		api               string
 		repo              *gitrepo.Repository
-		state             *config.PipelineState
+		state             *config.LibrarianState
 		container         *mockContainerClient
 		build             bool
 		wantErr           bool
@@ -370,14 +387,15 @@ func TestGenerateRun(t *testing.T) {
 		wantBuildCalls    int
 	}{
 		{
-			name:    "regeneration of API",
-			apiPath: "some/api",
-			repo:    newTestGitRepo(t),
-			state: &config.PipelineState{
+			name: "regeneration of API",
+			api:  "some/api",
+			repo: newTestGitRepo(t),
+			state: &config.LibrarianState{
+				Image: "gcr.io/test/image:v1.2.3",
 				Libraries: []*config.LibraryState{
 					{
-						ID:       "some-library",
-						APIPaths: []string{"some/api"},
+						ID:   "some-library",
+						APIs: []config.API{{Path: "some/api"}},
 					},
 				},
 			},
@@ -391,7 +409,7 @@ func TestGenerateRun(t *testing.T) {
 			t.Parallel()
 			r := &generateRunner{
 				cfg: &config.Config{
-					API:    test.apiPath,
+					API:    test.api,
 					Source: t.TempDir(),
 					Build:  test.build,
 				},
