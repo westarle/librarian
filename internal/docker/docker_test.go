@@ -66,7 +66,6 @@ func TestDockerRun(t *testing.T) {
 		testImage           = "testImage"
 		testLibraryID       = "testLibraryID"
 		testOutput          = "testOutput"
-		testRepoRoot        = "testRepoRoot"
 	)
 
 	state := &config.LibrarianState{}
@@ -79,6 +78,7 @@ func TestDockerRun(t *testing.T) {
 		docker     *Docker
 		runCommand func(ctx context.Context, d *Docker) error
 		want       []string
+		wantErr    bool
 	}{
 		{
 			name: "Generate",
@@ -110,6 +110,7 @@ func TestDockerRun(t *testing.T) {
 				"--source=/source",
 				fmt.Sprintf("--library-id=%s", testLibraryID),
 			},
+			wantErr: false,
 		},
 		{
 			name: "Generate runs in docker",
@@ -141,6 +142,7 @@ func TestDockerRun(t *testing.T) {
 				"--source=/source",
 				fmt.Sprintf("--library-id=%s", testLibraryID),
 			},
+			wantErr: false,
 		},
 		{
 			name: "Build",
@@ -148,17 +150,42 @@ func TestDockerRun(t *testing.T) {
 				Image: testImage,
 			},
 			runCommand: func(ctx context.Context, d *Docker) error {
-				return d.Build(ctx, cfg, testRepoRoot, testLibraryID)
+				buildRequest := &BuildRequest{
+					Cfg:       cfg,
+					State:     state,
+					LibraryID: testLibraryID,
+					RepoDir:   ".",
+				}
+				return d.Build(ctx, buildRequest)
 			},
 			want: []string{
 				"run", "--rm",
-				"-v", fmt.Sprintf("%s:/repo", testRepoRoot),
+				"-v", ".librarian:/librarian:ro",
+				"-v", ".:/repo",
 				testImage,
 				string(CommandBuild),
 				"--repo-root=/repo",
 				"--test=true",
 				fmt.Sprintf("--library-id=%s", testLibraryID),
 			},
+			wantErr: false,
+		},
+		{
+			name: "Build with invalid repo dir",
+			docker: &Docker{
+				Image: testImage,
+			},
+			runCommand: func(ctx context.Context, d *Docker) error {
+				buildRequest := &BuildRequest{
+					Cfg:       cfg,
+					State:     state,
+					LibraryID: testLibraryID,
+					RepoDir:   "/non-exist-dir",
+				}
+				return d.Build(ctx, buildRequest)
+			},
+			want:    []string{},
+			wantErr: true,
 		},
 		{
 			name: "Configure",
@@ -178,6 +205,7 @@ func TestDockerRun(t *testing.T) {
 				"--.librarian/generator-input=/.librarian/generator-input",
 				fmt.Sprintf("--api=%s", testAPIPath),
 			},
+			wantErr: false,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -188,9 +216,19 @@ func TestDockerRun(t *testing.T) {
 				return nil
 			}
 			ctx := t.Context()
-			if err := test.runCommand(ctx, test.docker); err != nil {
+			err := test.runCommand(ctx, test.docker)
+
+			if test.wantErr {
+				if err == nil {
+					t.Errorf("%s should return error", test.name)
+				}
+				return
+			}
+
+			if err != nil {
 				t.Fatal(err)
 			}
+
 			os.RemoveAll(".librarian")
 			os.Remove(testGenerateRequest)
 		})
@@ -263,14 +301,14 @@ func TestToGenerateRequestJSON(t *testing.T) {
 			tempDir := t.TempDir()
 			if test.name == "invalid_file_name" {
 				filePath := filepath.Join(tempDir, "my\x00file.json")
-				err := writeGenerateRequest(test.state, "google-cloud-go", filePath)
+				err := writeRequest(test.state, "google-cloud-go", filePath)
 				if err == nil {
 					t.Errorf("writeGenerateRequest() expected an error but got nil")
 				}
 				return
 			} else if test.expectErr {
 				filePath := filepath.Join("/non-exist-dir", "generate-request.json")
-				err := writeGenerateRequest(test.state, "google-cloud-go", filePath)
+				err := writeRequest(test.state, "google-cloud-go", filePath)
 				if err == nil {
 					t.Errorf("writeGenerateRequest() expected an error but got nil")
 				}
@@ -278,7 +316,7 @@ func TestToGenerateRequestJSON(t *testing.T) {
 			}
 
 			filePath := filepath.Join(tempDir, "generate-request.json")
-			err := writeGenerateRequest(test.state, "google-cloud-go", filePath)
+			err := writeRequest(test.state, "google-cloud-go", filePath)
 
 			if err != nil {
 				t.Fatalf("writeGenerateRequest() unexpected error: %v", err)
