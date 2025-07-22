@@ -89,6 +89,7 @@ func init() {
 	addFlagAPI(fs, cfg)
 	addFlagBuild(fs, cfg)
 	addFlagHostMount(fs, cfg)
+	addFlagPushConfig(fs, cfg)
 	addFlagImage(fs, cfg)
 	addFlagProject(fs, cfg)
 	addFlagRepo(fs, cfg)
@@ -114,6 +115,9 @@ func newGenerateRunner(cfg *config.Config) (*generateRunner, error) {
 	if err := validateRequiredFlag("source", cfg.Source); err != nil {
 		return nil, err
 	}
+	if err := validatePushConfigAndGithubTokenCoexist(cfg.PushConfig, cfg.GitHubToken); err != nil {
+		return nil, err
+	}
 	workRoot, err := createWorkRoot(time.Now(), cfg.WorkRoot)
 	if err != nil {
 		return nil, err
@@ -131,7 +135,7 @@ func newGenerateRunner(cfg *config.Config) (*generateRunner, error) {
 	var ghClient GitHubClient
 	if isUrl(cfg.Repo) {
 		// repo is a URL
-		languageRepo, err := github.ParseUrl(cfg.Repo)
+		languageRepo, err := github.ParseURL(cfg.Repo)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse repo url: %w", err)
 		}
@@ -182,6 +186,11 @@ func (r *generateRunner) run(ctx context.Context) error {
 	if err := r.runBuildCommand(ctx, libraryID); err != nil {
 		return err
 	}
+
+	// Commit and Push to GitHub.
+	if err := commitAndPush(ctx, r.repo, r.ghClient, r.cfg.PushConfig); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -220,10 +229,12 @@ func (r *generateRunner) runGenerateCommand(ctx context.Context, outputDir strin
 		if err := r.cleanAndCopyLibrary(libraryID, outputDir); err != nil {
 			return "", err
 		}
+
 		return libraryID, nil
 	}
 
 	slog.Info("No matching library found (or no repo specified)", "path", r.cfg.API)
+
 	return "", fmt.Errorf("library not found")
 }
 
