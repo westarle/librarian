@@ -38,16 +38,20 @@ func addFlagHostMount(fs *flag.FlagSet, cfg *config.Config) {
 	fs.StringVar(&cfg.HostMount, "host-mount", defaultValue, "a mount point from Docker host and within the Docker. The format is {host-dir}:{local-dir}.")
 }
 
-func addFlagPushConfig(fs *flag.FlagSet, cfg *config.Config) {
-	fs.StringVar(&cfg.PushConfig, "push-config", "", "If specified, will try to create a commit and pull request for the generated changes. The format should be \"{git-email-address},{author-name}\". Also, when this field is specified it is expected a Github token will be provided with push access via the environment variable LIBRARIAN_GITHUB_TOKEN")
-}
-
 func addFlagImage(fs *flag.FlagSet, cfg *config.Config) {
 	fs.StringVar(&cfg.Image, "image", "", "Container image to run for subcommands. Defaults to the image in the pipeline state.")
 }
 
+func addFlagLibrary(fs *flag.FlagSet, cfg *config.Config) {
+	fs.StringVar(&cfg.Library, "library", "", "The ID of a single library to update")
+}
+
 func addFlagProject(fs *flag.FlagSet, cfg *config.Config) {
 	fs.StringVar(&cfg.Project, "project", "", "Project containing Secret Manager secrets.")
+}
+
+func addFlagPushConfig(fs *flag.FlagSet, cfg *config.Config) {
+	fs.StringVar(&cfg.PushConfig, "push-config", "", "If specified, will try to create a commit and pull request for the generated changes. The format should be \"{git-email-address},{author-name}\". Also, when this field is specified it is expected a Github token will be provided with push access via the environment variable LIBRARIAN_GITHUB_TOKEN")
 }
 
 func addFlagRepo(fs *flag.FlagSet, cfg *config.Config) {
