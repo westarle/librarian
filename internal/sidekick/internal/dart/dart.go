@@ -22,7 +22,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/googleapis/google-cloud-rust/generator/internal/api"
+	"github.com/googleapis/librarian/internal/sidekick/internal/api"
 	"github.com/iancoleman/strcase"
 )
 

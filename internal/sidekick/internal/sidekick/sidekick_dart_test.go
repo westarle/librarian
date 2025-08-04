@@ -21,6 +21,8 @@ import (
 )
 
 func TestDartFromProtobuf(t *testing.T) {
+	requireProtoc(t)
+
 	outDir, err := os.MkdirTemp(t.TempDir(), "golden")
 	if err != nil {
 		t.Fatal(err)

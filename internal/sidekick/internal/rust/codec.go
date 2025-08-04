@@ -25,8 +25,8 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/googleapis/google-cloud-rust/generator/internal/api"
-	"github.com/googleapis/google-cloud-rust/generator/internal/language"
+	"github.com/googleapis/librarian/internal/sidekick/internal/api"
+	"github.com/googleapis/librarian/internal/sidekick/internal/language"
 	"github.com/iancoleman/strcase"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"

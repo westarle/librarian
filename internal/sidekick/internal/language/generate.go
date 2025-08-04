@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	"github.com/cbroglie/mustache"
-	"github.com/googleapis/google-cloud-rust/generator/internal/api"
+	"github.com/googleapis/librarian/internal/sidekick/internal/api"
 )
 
 type mustacheProvider struct {

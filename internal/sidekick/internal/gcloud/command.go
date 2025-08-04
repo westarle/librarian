@@ -14,7 +14,7 @@
 
 package gcloud
 
-import "github.com/googleapis/google-cloud-rust/generator/internal/config/gcloudyaml"
+import "github.com/googleapis/librarian/internal/sidekick/internal/config/gcloudyaml"
 
 type Command struct {
 	ReleaseTracks []gcloudyaml.ReleaseTrack `yaml:"release_tracks,omitempty"`

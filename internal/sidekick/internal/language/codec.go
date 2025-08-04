@@ -17,7 +17,7 @@ package language
 import (
 	"log/slog"
 
-	"github.com/googleapis/google-cloud-rust/generator/internal/api"
+	"github.com/googleapis/librarian/internal/sidekick/internal/api"
 )
 
 // GeneratedFile represents an input template and its corresponding output file.

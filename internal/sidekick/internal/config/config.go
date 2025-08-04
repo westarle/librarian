@@ -26,8 +26,8 @@ import (
 	"path"
 	"strings"
 
-	"github.com/googleapis/google-cloud-rust/generator/internal/config/gcloudyaml"
-	"github.com/googleapis/google-cloud-rust/generator/internal/license"
+	"github.com/googleapis/librarian/internal/sidekick/internal/config/gcloudyaml"
+	"github.com/googleapis/librarian/internal/sidekick/internal/license"
 	toml "github.com/pelletier/go-toml/v2"
 )
 

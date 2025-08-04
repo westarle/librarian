@@ -23,7 +23,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/googleapis/google-cloud-rust/generator/internal/config"
+	"github.com/googleapis/librarian/internal/sidekick/internal/config"
 	toml "github.com/pelletier/go-toml/v2"
 )
 

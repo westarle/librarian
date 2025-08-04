@@ -18,7 +18,7 @@ package sample
 import (
 	"net/http"
 
-	"github.com/googleapis/google-cloud-rust/generator/internal/api"
+	"github.com/googleapis/librarian/internal/sidekick/internal/api"
 )
 
 const (

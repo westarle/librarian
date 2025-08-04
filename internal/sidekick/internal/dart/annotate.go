@@ -22,9 +22,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/googleapis/google-cloud-rust/generator/internal/api"
-	"github.com/googleapis/google-cloud-rust/generator/internal/language"
-	"github.com/googleapis/google-cloud-rust/generator/internal/license"
+	"github.com/googleapis/librarian/internal/sidekick/internal/api"
+	"github.com/googleapis/librarian/internal/sidekick/internal/language"
+	"github.com/googleapis/librarian/internal/sidekick/internal/license"
 	"github.com/iancoleman/strcase"
 )
 
