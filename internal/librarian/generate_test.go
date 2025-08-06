@@ -130,6 +130,40 @@ func TestRunBuildCommand(t *testing.T) {
 			build:     true,
 			container: &mockContainerClient{},
 		},
+		{
+			name:      "build with no response",
+			build:     true,
+			libraryID: "some-library",
+			repo:      newTestGitRepo(t),
+			state: &config.LibrarianState{
+				Libraries: []*config.LibraryState{
+					{
+						ID: "some-library",
+					},
+				},
+			},
+			container: &mockContainerClient{
+				noBuildResponse: true,
+			},
+			wantErr: true,
+		},
+		{
+			name:      "build with error response in response",
+			build:     true,
+			libraryID: "some-library",
+			repo:      newTestGitRepo(t),
+			state: &config.LibrarianState{
+				Libraries: []*config.LibraryState{
+					{
+						ID: "some-library",
+					},
+				},
+			},
+			container: &mockContainerClient{
+				wantErrorMsg: true,
+			},
+			wantErr: true,
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -141,6 +175,7 @@ func TestRunBuildCommand(t *testing.T) {
 				state:           test.state,
 				containerClient: test.container,
 			}
+
 			err := r.runBuildCommand(context.Background(), test.libraryID)
 			if test.wantErr {
 				if err == nil {
@@ -170,7 +205,7 @@ func TestRunConfigureCommand(t *testing.T) {
 		wantErr            bool
 	}{
 		{
-			name: "configures library",
+			name: "configures library successfully",
 			api:  "some/api",
 			repo: newTestGitRepo(t),
 			state: &config.LibrarianState{
@@ -201,6 +236,24 @@ func TestRunConfigureCommand(t *testing.T) {
 			wantErr:            true,
 		},
 		{
+			name: "configures library with error message in response",
+			api:  "some/api",
+			repo: newTestGitRepo(t),
+			state: &config.LibrarianState{
+				Libraries: []*config.LibraryState{
+					{
+						ID:   "some-library",
+						APIs: []*config.API{{Path: "some/api"}},
+					},
+				},
+			},
+			container: &mockContainerClient{
+				wantErrorMsg: true,
+			},
+			wantConfigureCalls: 1,
+			wantErr:            true,
+		},
+		{
 			name: "configures library with no response",
 			api:  "some/api",
 			repo: newTestGitRepo(t),
@@ -212,7 +265,9 @@ func TestRunConfigureCommand(t *testing.T) {
 					},
 				},
 			},
-			container:          &mockContainerClient{},
+			container: &mockContainerClient{
+				noConfigureResponse: true,
+			},
 			wantConfigureCalls: 1,
 			wantErr:            true,
 		},
@@ -249,26 +304,14 @@ func TestRunConfigureCommand(t *testing.T) {
 				containerClient: test.container,
 			}
 
-			if test.name == "configures library" {
+			if test.name == "configures library successfully" ||
+				test.name == "configures library with error message in response" {
 				if err := os.MkdirAll(filepath.Join(cfg.APISource, test.api), 0755); err != nil {
 					t.Fatal(err)
 				}
 
 				data := []byte("type: google.api.Service")
 				if err := os.WriteFile(filepath.Join(cfg.APISource, test.api, "example_service_v2.yaml"), data, 0755); err != nil {
-					t.Fatal(err)
-				}
-
-				// Write a configure-response.json because it is required by configure
-				// command.
-				if err := os.MkdirAll(filepath.Join(r.repo.GetDir(), config.LibrarianDir), 0755); err != nil {
-					t.Fatal(err)
-				}
-
-				libraryStr := fmt.Sprintf(`{
-	"ID": "%s"
-}`, test.state.Libraries[0].ID)
-				if err := os.WriteFile(filepath.Join(r.repo.GetDir(), config.LibrarianDir, config.ConfigureResponse), []byte(libraryStr), 0755); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -818,6 +861,28 @@ func TestGenerateScenarios(t *testing.T) {
 			ghClient:  &mockGitHubClient{},
 			build:     true,
 			wantErr:   true,
+		},
+		{
+			name:    "generate single existing library with error message in response",
+			api:     "some/api",
+			library: "some-library",
+			repo:    newTestGitRepo(t),
+			state: &config.LibrarianState{
+				Image: "gcr.io/test/image:v1.2.3",
+				Libraries: []*config.LibraryState{
+					{
+						ID:   "some-library",
+						APIs: []*config.API{{Path: "some/api"}},
+					},
+				},
+			},
+			container: &mockContainerClient{
+				wantErrorMsg: true,
+			},
+			ghClient:           &mockGitHubClient{},
+			wantGenerateCalls:  1,
+			wantConfigureCalls: 0,
+			wantErr:            true,
 		},
 		{
 			name: "generate all libraries configured in state",

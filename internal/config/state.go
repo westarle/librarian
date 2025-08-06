@@ -99,6 +99,9 @@ type LibraryState struct {
 	// If not set, this defaults to the `source_roots`.
 	// A more specific `preserve_regex` takes precedence.
 	RemoveRegex []string `yaml:"remove_regex" json:"remove_regex"`
+	// An error message from the docker response.
+	// This field is ignored when writing to state.yaml.
+	ErrorMessage string `yaml:"-" json:"error,omitempty"`
 }
 
 var (

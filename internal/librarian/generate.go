@@ -273,6 +273,15 @@ func (r *generateRunner) runGenerateCommand(ctx context.Context, libraryID, outp
 		return "", err
 	}
 
+	// Read the library state from the response.
+	if _, err := readLibraryState(
+		func(data []byte, libraryState *config.LibraryState) error {
+			return json.Unmarshal(data, libraryState)
+		},
+		filepath.Join(generateRequest.RepoDir, config.LibrarianDir, config.GenerateResponse)); err != nil {
+		return "", err
+	}
+
 	if err := r.cleanAndCopyLibrary(libraryID, outputDir); err != nil {
 		return "", err
 	}
@@ -320,7 +329,18 @@ func (r *generateRunner) runBuildCommand(ctx context.Context, libraryID string) 
 		RepoDir:   r.repo.GetDir(),
 	}
 	slog.Info("Build requested for library", "id", libraryID)
-	return r.containerClient.Build(ctx, buildRequest)
+	if err := r.containerClient.Build(ctx, buildRequest); err != nil {
+		return err
+	}
+
+	// Read the library state from the response.
+	_, err := readLibraryState(
+		func(data []byte, libraryState *config.LibraryState) error {
+			return json.Unmarshal(data, libraryState)
+		},
+		filepath.Join(buildRequest.RepoDir, config.LibrarianDir, config.BuildResponse))
+
+	return err
 }
 
 // clean removes files and directories from a root directory based on remove and preserve patterns.
@@ -530,7 +550,7 @@ func (r *generateRunner) runConfigureCommand(ctx context.Context) (string, error
 	}
 
 	// Read the new library state from the response.
-	libraryState, err := readConfigureResponse(
+	libraryState, err := readLibraryState(
 		func(data []byte, libraryState *config.LibraryState) error {
 			return json.Unmarshal(data, libraryState)
 		},

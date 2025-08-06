@@ -342,6 +342,11 @@ func TestReadConfigureResponseJSON(t *testing.T) {
 			wantState:    &config.LibraryState{},
 		},
 		{
+			name:         "load content with an error message",
+			jsonFilePath: "../../testdata/unmarshal-libraryState-with-error-msg.json",
+			wantState:    nil,
+		},
+		{
 			name:      "invalid file name",
 			wantState: nil,
 		},
@@ -355,9 +360,9 @@ func TestReadConfigureResponseJSON(t *testing.T) {
 			tempDir := t.TempDir()
 			if test.name == "invalid file name" {
 				filePath := filepath.Join(tempDir, "my\x00file.json")
-				_, err := readConfigureResponse(contentLoader, filePath)
+				_, err := readLibraryState(contentLoader, filePath)
 				if err == nil {
-					t.Error("readConfigureResponse() expected an error but got nil")
+					t.Error("readLibraryState() expected an error but got nil")
 				}
 
 				if g, w := err.Error(), "failed to read response file"; !strings.Contains(g, w) {
@@ -375,9 +380,9 @@ func TestReadConfigureResponseJSON(t *testing.T) {
 				if err := copyFile(dst, test.jsonFilePath); err != nil {
 					t.Error(err)
 				}
-				_, err := readConfigureResponse(invalidContentLoader, dst)
+				_, err := readLibraryState(invalidContentLoader, dst)
 				if err == nil {
-					t.Errorf("readConfigureResponse() expected an error but got nil")
+					t.Errorf("readLibraryState() expected an error but got nil")
 				}
 
 				if g, w := err.Error(), "failed to load file"; !strings.Contains(g, w) {
@@ -386,17 +391,29 @@ func TestReadConfigureResponseJSON(t *testing.T) {
 				return
 			}
 
-			// The response file is removed by the readConfigureResponse() function,
+			// The response file is removed by the readLibraryState() function,
 			// so we create a copy and read from it.
 			dstFilePath := fmt.Sprintf("%s/copy.json", os.TempDir())
 			if err := copyFile(dstFilePath, test.jsonFilePath); err != nil {
 				t.Error(err)
 			}
 
-			gotState, err := readConfigureResponse(contentLoader, dstFilePath)
+			gotState, err := readLibraryState(contentLoader, dstFilePath)
+
+			if test.name == "load content with an error message" {
+				if err == nil {
+					t.Errorf("readLibraryState() expected an error but got nil")
+				}
+
+				if g, w := err.Error(), "failed with error message"; !strings.Contains(g, w) {
+					t.Errorf("got %q, wanted it to contain %q", g, w)
+				}
+
+				return
+			}
 
 			if err != nil {
-				t.Fatalf("readConfigureResponse() unexpected error: %v", err)
+				t.Fatalf("readLibraryState() unexpected error: %v", err)
 			}
 
 			if diff := cmp.Diff(test.wantState, gotState); diff != "" {
