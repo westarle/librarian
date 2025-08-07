@@ -558,6 +558,11 @@ func (r *generateRunner) runConfigureCommand(ctx context.Context) (string, error
 		return "", err
 	}
 
+	if libraryState.Version == "" {
+		slog.Info("library doesn't receive a version, apply the default version", "id", r.cfg.Library)
+		libraryState.Version = "0.0.0"
+	}
+
 	// Update the library state in the librarian state.
 	for i, library := range r.state.Libraries {
 		if library.ID != libraryState.ID {
