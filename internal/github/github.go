@@ -135,8 +135,15 @@ func (c *Client) CreatePullRequest(ctx context.Context, repo *Repository, remote
 	return pullRequestMetadata, nil
 }
 
+// AddLabelsToIssue adds labels to an existing issue in a GitHub repository.
+func (c *Client) AddLabelsToIssue(ctx context.Context, repo *Repository, number int, labels []string) error {
+	slog.Info("Labels added to issue", "number", number, "labels", labels)
+	_, _, err := c.Issues.AddLabelsToIssue(ctx, repo.Owner, repo.Name, number, labels)
+	return err
+}
+
 // FetchGitHubRepoFromRemote parses the GitHub repo name from the remote for this repository.
-// There must be a remote named 'origin' with a Github URL (as the first URL), in order to
+// There must be a remote named 'origin' with a GitHub URL (as the first URL), in order to
 // provide an unambiguous result.
 // Remotes without any URLs, or where the first URL does not start with https://github.com/ are ignored.
 func FetchGitHubRepoFromRemote(repo gitrepo.Repository) (*Repository, error) {
