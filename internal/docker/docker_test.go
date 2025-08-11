@@ -16,7 +16,6 @@ package docker
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -55,11 +54,12 @@ func TestNew(t *testing.T) {
 
 func TestDockerRun(t *testing.T) {
 	const (
-		mockImage     = "mockImage"
-		testAPIRoot   = "testAPIRoot"
-		testImage     = "testImage"
-		testLibraryID = "testLibraryID"
-		testOutput    = "testOutput"
+		mockImage            = "mockImage"
+		testAPIRoot          = "testAPIRoot"
+		testImage            = "testImage"
+		testLibraryID        = "testLibraryID"
+		testOutput           = "testOutput"
+		simulateDockerErrMsg = "simulate docker command failure for testing"
 	)
 
 	state := &config.LibrarianState{}
@@ -74,6 +74,7 @@ func TestDockerRun(t *testing.T) {
 		runCommand func(ctx context.Context, d *Docker) error
 		want       []string
 		wantErr    bool
+		wantErrMsg string
 	}{
 		{
 			name: "Generate",
@@ -105,7 +106,6 @@ func TestDockerRun(t *testing.T) {
 				"--output=/output",
 				"--source=/source",
 			},
-			wantErr: false,
 		},
 		{
 			name: "Generate with invalid repo root",
@@ -123,8 +123,9 @@ func TestDockerRun(t *testing.T) {
 				}
 				return d.Generate(ctx, generateRequest)
 			},
-			want:    []string{},
-			wantErr: true,
+			want:       []string{},
+			wantErr:    true,
+			wantErrMsg: "failed to make directory",
 		},
 		{
 			name: "Generate with mock image",
@@ -143,8 +144,9 @@ func TestDockerRun(t *testing.T) {
 
 				return d.Generate(ctx, generateRequest)
 			},
-			want:    []string{},
-			wantErr: true,
+			want:       []string{},
+			wantErr:    true,
+			wantErrMsg: simulateDockerErrMsg,
 		},
 		{
 			name: "Generate runs in docker",
@@ -176,7 +178,6 @@ func TestDockerRun(t *testing.T) {
 				"--output=/output",
 				"--source=/source",
 			},
-			wantErr: false,
 		},
 		{
 			name: "Build",
@@ -202,7 +203,6 @@ func TestDockerRun(t *testing.T) {
 				"--librarian=/librarian",
 				"--repo=/repo",
 			},
-			wantErr: false,
 		},
 		{
 			name: "Build with invalid repo dir",
@@ -218,8 +218,9 @@ func TestDockerRun(t *testing.T) {
 				}
 				return d.Build(ctx, buildRequest)
 			},
-			want:    []string{},
-			wantErr: true,
+			want:       []string{},
+			wantErr:    true,
+			wantErrMsg: "failed to make directory",
 		},
 		{
 			name: "Build with mock image",
@@ -236,8 +237,9 @@ func TestDockerRun(t *testing.T) {
 
 				return d.Build(ctx, buildRequest)
 			},
-			want:    []string{},
-			wantErr: true,
+			want:       []string{},
+			wantErr:    true,
+			wantErrMsg: simulateDockerErrMsg,
 		},
 		{
 			name: "Configure",
@@ -251,14 +253,6 @@ func TestDockerRun(t *testing.T) {
 					LibraryID: testLibraryID,
 					RepoDir:   repoDir,
 					ApiRoot:   testAPIRoot,
-				}
-				jsonData, _ := json.MarshalIndent(&config.LibraryState{}, "", "  ")
-				if err := os.MkdirAll(filepath.Join(configureRequest.RepoDir, config.LibrarianDir), 0755); err != nil {
-					return err
-				}
-				jsonFilePath := filepath.Join(configureRequest.RepoDir, config.LibrarianDir, config.ConfigureResponse)
-				if err := os.WriteFile(jsonFilePath, jsonData, 0644); err != nil {
-					return err
 				}
 
 				_, err := d.Configure(ctx, configureRequest)
@@ -276,7 +270,6 @@ func TestDockerRun(t *testing.T) {
 				"--input=/input",
 				"--source=/source",
 			},
-			wantErr: false,
 		},
 		{
 			name: "Configure with multiple libraries in librarian state",
@@ -316,24 +309,6 @@ func TestDockerRun(t *testing.T) {
 					RepoDir:   repoDir,
 					ApiRoot:   testAPIRoot,
 				}
-				jsonData, _ := json.MarshalIndent(&config.LibraryState{
-					ID: testLibraryID,
-					APIs: []*config.API{
-						{
-							Path:          "example/path/v1",
-							ServiceConfig: "generated_example_v1.yaml",
-						},
-					},
-				}, "", "  ")
-
-				if err := os.MkdirAll(filepath.Join(configureRequest.RepoDir, config.LibrarianDir), 0755); err != nil {
-					return err
-				}
-
-				jsonFilePath := filepath.Join(configureRequest.RepoDir, config.LibrarianDir, config.ConfigureResponse)
-				if err := os.WriteFile(jsonFilePath, jsonData, 0644); err != nil {
-					return err
-				}
 
 				configuredLibrary, err := d.Configure(ctx, configureRequest)
 				if configuredLibrary != testLibraryID {
@@ -353,7 +328,6 @@ func TestDockerRun(t *testing.T) {
 				"--input=/input",
 				"--source=/source",
 			},
-			wantErr: false,
 		},
 		{
 			name: "Configure with invalid repo dir",
@@ -371,8 +345,9 @@ func TestDockerRun(t *testing.T) {
 				_, err := d.Configure(ctx, configureRequest)
 				return err
 			},
-			want:    []string{},
-			wantErr: true,
+			want:       []string{},
+			wantErr:    true,
+			wantErrMsg: "failed to make directory",
 		},
 		{
 			name: "Configure with mock image",
@@ -392,8 +367,132 @@ func TestDockerRun(t *testing.T) {
 
 				return err
 			},
-			want:    []string{},
-			wantErr: true,
+			want:       []string{},
+			wantErr:    true,
+			wantErrMsg: simulateDockerErrMsg,
+		},
+		{
+			name: "Release init for all libraries",
+			docker: &Docker{
+				Image: testImage,
+			},
+			runCommand: func(ctx context.Context, d *Docker) error {
+				releaseInitRequest := &ReleaseRequest{
+					Cfg:     cfg,
+					State:   state,
+					RepoDir: repoDir,
+					Output:  testOutput,
+				}
+
+				return d.ReleaseInit(ctx, releaseInitRequest)
+			},
+			want: []string{
+				"run", "--rm",
+				"-v", fmt.Sprintf("%s/.librarian:/librarian", repoDir),
+				"-v", fmt.Sprintf("%s:/repo:ro", repoDir),
+				"-v", fmt.Sprintf("%s:/output", testOutput),
+				testImage,
+				string(CommandReleaseInit),
+				"--librarian=/librarian",
+				"--repo=/repo",
+				"--output=/output",
+			},
+		},
+		{
+			name: "Release init returns error",
+			docker: &Docker{
+				Image: mockImage,
+			},
+			runCommand: func(ctx context.Context, d *Docker) error {
+				releaseInitRequest := &ReleaseRequest{
+					Cfg:     cfg,
+					State:   state,
+					RepoDir: repoDir,
+					Output:  testOutput,
+				}
+
+				return d.ReleaseInit(ctx, releaseInitRequest)
+			},
+			wantErr:    true,
+			wantErrMsg: simulateDockerErrMsg,
+		},
+		{
+			name: "Release init with invalid repo dir",
+			docker: &Docker{
+				Image: mockImage,
+			},
+			runCommand: func(ctx context.Context, d *Docker) error {
+				releaseInitRequest := &ReleaseRequest{
+					Cfg:     cfg,
+					State:   state,
+					RepoDir: "/non-exist-dir",
+					Output:  testOutput,
+				}
+
+				return d.ReleaseInit(ctx, releaseInitRequest)
+			},
+			wantErr:    true,
+			wantErrMsg: "failed to make directory",
+		},
+		{
+			name: "Release init for one library",
+			docker: &Docker{
+				Image: testImage,
+			},
+			runCommand: func(ctx context.Context, d *Docker) error {
+				releaseInitRequest := &ReleaseRequest{
+					Cfg:       cfg,
+					State:     state,
+					RepoDir:   repoDir,
+					Output:    testOutput,
+					LibraryID: testLibraryID,
+				}
+
+				return d.ReleaseInit(ctx, releaseInitRequest)
+			},
+			want: []string{
+				"run", "--rm",
+				"-v", fmt.Sprintf("%s/.librarian:/librarian", repoDir),
+				"-v", fmt.Sprintf("%s:/repo:ro", repoDir),
+				"-v", fmt.Sprintf("%s:/output", testOutput),
+				testImage,
+				string(CommandReleaseInit),
+				"--librarian=/librarian",
+				"--repo=/repo",
+				"--output=/output",
+				fmt.Sprintf("--library=%s", testLibraryID),
+			},
+		},
+		{
+			name: "Release init for one library with version",
+			docker: &Docker{
+				Image: testImage,
+			},
+			runCommand: func(ctx context.Context, d *Docker) error {
+				releaseInitRequest := &ReleaseRequest{
+					Cfg:            cfg,
+					State:          state,
+					RepoDir:        repoDir,
+					Output:         testOutput,
+					LibraryID:      testLibraryID,
+					LibraryVersion: "1.2.3",
+				}
+
+				return d.ReleaseInit(ctx, releaseInitRequest)
+			},
+			want: []string{
+				"run", "--rm",
+				"-v", fmt.Sprintf("%s/.librarian:/librarian", repoDir),
+				"-v", fmt.Sprintf("%s:/repo:ro", repoDir),
+				"-v", fmt.Sprintf("%s:/output", testOutput),
+				testImage,
+				string(CommandReleaseInit),
+				"--librarian=/librarian",
+				"--repo=/repo",
+				"--output=/output",
+				fmt.Sprintf("--library=%s", testLibraryID),
+				"--library-version=1.2.3",
+			},
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -413,6 +512,9 @@ func TestDockerRun(t *testing.T) {
 				if err == nil {
 					t.Errorf("%s should return error", test.name)
 				}
+				if !strings.Contains(err.Error(), test.wantErrMsg) {
+					t.Errorf("want error message: %s, got: %s", test.wantErrMsg, err.Error())
+				}
 				return
 			}
 
@@ -423,15 +525,19 @@ func TestDockerRun(t *testing.T) {
 	}
 }
 
-func TestToGenerateRequestJSON(t *testing.T) {
+func TestWriteLibraryState(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
-		name      string
-		state     *config.LibrarianState
-		expectErr bool
+		name       string
+		state      *config.LibrarianState
+		path       string
+		filename   string
+		wantFile   string
+		wantErr    bool
+		wantErrMsg string
 	}{
 		{
-			name: "successful-marshaling-and-writing",
+			name: "write library state to file",
 			state: &config.LibrarianState{
 				Image: "v1.0.0",
 				Libraries: []*config.LibraryState{
@@ -467,47 +573,48 @@ func TestToGenerateRequestJSON(t *testing.T) {
 					},
 				},
 			},
-			expectErr: false,
+			path:     os.TempDir(),
+			filename: "example.json",
+			wantFile: "successful-marshaling-and-writing.json",
 		},
 		{
-			name:      "empty-pipelineState",
-			state:     &config.LibrarianState{},
-			expectErr: false,
+			name:     "empty library state",
+			state:    &config.LibrarianState{},
+			path:     os.TempDir(),
+			filename: "release-init-request.json",
+			wantFile: "empty-library-state.json",
 		},
 		{
-			name:      "nonexistent_dir_for_test",
-			state:     &config.LibrarianState{},
-			expectErr: true,
+			name:       "nonexistent directory",
+			state:      &config.LibrarianState{},
+			path:       "/nonexistent_dir_for_test",
+			filename:   "example.json",
+			wantErr:    true,
+			wantErrMsg: "failed to make directory",
 		},
 		{
-			name:      "invalid_file_name",
-			state:     &config.LibrarianState{},
-			expectErr: true,
+			name:       "invalid file name",
+			state:      &config.LibrarianState{},
+			path:       os.TempDir(),
+			filename:   "my\u0000file.json",
+			wantErr:    true,
+			wantErrMsg: "failed to create JSON file",
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			tempDir := t.TempDir()
-			if test.name == "invalid_file_name" {
-				filePath := filepath.Join(tempDir, "my\x00file.json")
-				err := writeRequest(test.state, "google-cloud-go", filePath)
-				if err == nil {
-					t.Errorf("writeGenerateRequest() expected an error but got nil")
-				}
-				return
-			} else if test.expectErr {
-				filePath := filepath.Join("/non-exist-dir", "generate-request.json")
-				err := writeRequest(test.state, "google-cloud-go", filePath)
-				if err == nil {
-					t.Errorf("writeGenerateRequest() expected an error but got nil")
-				}
-				return
-			}
+			filePath := filepath.Join(test.path, test.filename)
+			err := writeLibraryState(test.state, "google-cloud-go", filePath)
 
-			filePath := filepath.Join(tempDir, "generate-request.json")
-			err := writeRequest(test.state, "google-cloud-go", filePath)
+			if test.wantErr {
+				if err == nil {
+					t.Errorf("writeLibraryState() shoud fail")
+				}
 
-			if err != nil {
-				t.Fatalf("writeGenerateRequest() unexpected error: %v", err)
+				if !strings.Contains(err.Error(), test.wantErrMsg) {
+					t.Errorf("want error message: %s, got: %s", test.wantErrMsg, err.Error())
+				}
+
+				return
 			}
 
 			// Verify the file content
@@ -516,8 +623,116 @@ func TestToGenerateRequestJSON(t *testing.T) {
 				t.Fatalf("Failed to read generated file: %v", err)
 			}
 
-			fileName := fmt.Sprintf("%s.json", test.name)
-			wantBytes, readErr := os.ReadFile(filepath.Join("..", "..", "testdata", fileName))
+			wantBytes, readErr := os.ReadFile(filepath.Join("..", "..", "testdata", test.wantFile))
+			if readErr != nil {
+				t.Fatalf("Failed to read expected state for comparison: %v", readErr)
+			}
+
+			if diff := cmp.Diff(strings.TrimSpace(string(wantBytes)), string(gotBytes)); diff != "" {
+				t.Errorf("Generated JSON mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestWriteLibrarianState(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name       string
+		state      *config.LibrarianState
+		path       string
+		filename   string
+		wantFile   string
+		wantErr    bool
+		wantErrMsg string
+	}{
+		{
+			name: "write to a json file",
+			state: &config.LibrarianState{
+				Image: "v1.0.0",
+				Libraries: []*config.LibraryState{
+					{
+						ID:                  "google-cloud-go",
+						Version:             "1.0.0",
+						LastGeneratedCommit: "abcd123",
+						APIs: []*config.API{
+							{
+								Path:          "google/cloud/compute/v1",
+								ServiceConfig: "example_service_config.yaml",
+							},
+						},
+						SourceRoots: []string{
+							"src/example/path",
+						},
+						PreserveRegex: []string{
+							"example-preserve-regex",
+						},
+						RemoveRegex: []string{
+							"example-remove-regex",
+						},
+					},
+					{
+						ID:      "google-cloud-storage",
+						Version: "1.2.3",
+						APIs: []*config.API{
+							{
+								Path:          "google/storage/v1",
+								ServiceConfig: "storage_service_config.yaml",
+							},
+						},
+					},
+				},
+			},
+			path:     os.TempDir(),
+			filename: "release-init-request.json",
+			wantFile: "write-librarian-state-example.json",
+		},
+		{
+			name:     "empty librarian state",
+			state:    &config.LibrarianState{},
+			path:     os.TempDir(),
+			filename: "release-init-request.json",
+			wantFile: "empty-librarian-state.json",
+		},
+		{
+			name:       "nonexistent directory",
+			state:      &config.LibrarianState{},
+			path:       "/nonexistent_dir_for_test",
+			filename:   "example.json",
+			wantErr:    true,
+			wantErrMsg: "failed to make directory",
+		},
+		{
+			name:       "invalid file name",
+			state:      &config.LibrarianState{},
+			path:       os.TempDir(),
+			filename:   "my\u0000file.json",
+			wantErr:    true,
+			wantErrMsg: "failed to create JSON file",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			filePath := filepath.Join(test.path, test.filename)
+			err := writeLibrarianState(test.state, filePath)
+			if test.wantErr {
+				if err == nil {
+					t.Errorf("writeLibrarianState() shoud fail")
+				}
+
+				if !strings.Contains(err.Error(), test.wantErrMsg) {
+					t.Errorf("want error message: %s, got: %s", test.wantErrMsg, err.Error())
+				}
+
+				return
+			}
+
+			// Verify the file content
+			gotBytes, err := os.ReadFile(filePath)
+			if err != nil {
+				t.Fatalf("Failed to read generated file: %v", err)
+			}
+
+			wantBytes, readErr := os.ReadFile(filepath.Join("..", "..", "testdata", test.wantFile))
 			if readErr != nil {
 				t.Fatalf("Failed to read expected state for comparison: %v", readErr)
 			}
