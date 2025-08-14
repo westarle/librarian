@@ -19,7 +19,12 @@ import (
 	"slices"
 
 	"gopkg.in/yaml.v3"
+
+	_ "embed"
 )
+
+//go:embed prod/repositories.yaml
+var prodRepositoriesYaml []byte
 
 var availableCommands = map[string]bool{
 	"generate":        true,
@@ -93,4 +98,8 @@ func parseRepositoriesConfig(contentLoader func(file string) ([]byte, error), pa
 		return nil, fmt.Errorf("validating repositories config state: %w", err)
 	}
 	return &c, nil
+}
+
+func loadRepositoriesConfig() (*RepositoriesConfig, error) {
+	return parseRepositoriesConfig(func(file string) ([]byte, error) { return prodRepositoriesYaml, nil }, "unused")
 }
