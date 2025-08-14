@@ -21,6 +21,11 @@ import (
 	"strings"
 )
 
+const (
+	StatusNew      = "new"
+	StatusExisting = "existing"
+)
+
 // LibrarianState defines the contract for the state.yaml file.
 type LibrarianState struct {
 	// The name and tag of the generator image to use. tag is required.
@@ -189,6 +194,9 @@ type API struct {
 	Path string `yaml:"path" json:"path"`
 	// The name of the service config file, relative to the API `path`.
 	ServiceConfig string `yaml:"service_config" json:"service_config"`
+	// The status of the API, one of "new" or "existing".
+	// This field is ignored when writing to state.yaml.
+	Status string `yaml:"-" json:"status"`
 }
 
 // Validate checks that the API is valid.

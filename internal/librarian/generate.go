@@ -515,10 +515,11 @@ func (r *generateRunner) runConfigureCommand(ctx context.Context) (string, error
 		return "", err
 	}
 
-	// record to state, not write to state.yaml
+	setAllAPIStatus(r.state, config.StatusExisting)
+	// Record to state, not write to state.yaml
 	r.state.Libraries = append(r.state.Libraries, &config.LibraryState{
 		ID:   r.cfg.Library,
-		APIs: []*config.API{{Path: r.cfg.API}},
+		APIs: []*config.API{{Path: r.cfg.API, Status: config.StatusNew}},
 	})
 
 	if err := populateServiceConfigIfEmpty(
@@ -561,4 +562,12 @@ func (r *generateRunner) runConfigureCommand(ctx context.Context) (string, error
 	}
 
 	return libraryState.ID, nil
+}
+
+func setAllAPIStatus(state *config.LibrarianState, status string) {
+	for _, library := range state.Libraries {
+		for _, api := range library.APIs {
+			api.Status = status
+		}
+	}
 }
