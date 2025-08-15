@@ -29,7 +29,6 @@ import (
 	"github.com/googleapis/librarian/internal/cli"
 	"github.com/googleapis/librarian/internal/config"
 	"github.com/googleapis/librarian/internal/docker"
-	"github.com/googleapis/librarian/internal/github"
 	"github.com/googleapis/librarian/internal/gitrepo"
 )
 
@@ -99,54 +98,19 @@ type generateRunner struct {
 }
 
 func newGenerateRunner(cfg *config.Config) (*generateRunner, error) {
-	if cfg.APISource == "" {
-		cfg.APISource = "https://github.com/googleapis/googleapis"
-	}
-	sourceRepo, err := cloneOrOpenRepo(cfg.WorkRoot, cfg.APISource, cfg.CI)
-	if err != nil {
-		return nil, err
-	}
-
-	languageRepo, err := cloneOrOpenRepo(cfg.WorkRoot, cfg.Repo, cfg.CI)
-	if err != nil {
-		return nil, err
-	}
-	state, err := loadRepoState(languageRepo, sourceRepo.GetDir())
-	if err != nil {
-		return nil, err
-	}
-	image := deriveImage(cfg.Image, state)
-
-	var gitRepo *github.Repository
-	if isURL(cfg.Repo) {
-		gitRepo, err = github.ParseURL(cfg.Repo)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse repo url: %w", err)
-		}
-	} else {
-		gitRepo, err = github.FetchGitHubRepoFromRemote(languageRepo)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get GitHub repo from remote: %w", err)
-		}
-	}
-	ghClient, err := github.NewClient(cfg.GitHubToken, gitRepo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create GitHub client: %w", err)
-	}
-
-	container, err := docker.New(cfg.WorkRoot, image, cfg.UserUID, cfg.UserGID)
+	runner, err := newCommandRunner(cfg)
 	if err != nil {
 		return nil, err
 	}
 	return &generateRunner{
-		cfg:             cfg,
-		workRoot:        cfg.WorkRoot,
-		repo:            languageRepo,
-		sourceRepo:      sourceRepo,
-		state:           state,
-		image:           image,
-		ghClient:        ghClient,
-		containerClient: container,
+		cfg:             runner.cfg,
+		workRoot:        runner.workRoot,
+		repo:            runner.repo,
+		sourceRepo:      runner.sourceRepo,
+		state:           runner.state,
+		image:           runner.image,
+		ghClient:        runner.ghClient,
+		containerClient: runner.containerClient,
 	}, nil
 }
 
