@@ -94,11 +94,11 @@ type mockContainerClient struct {
 	generateCalls       int
 	buildCalls          int
 	configureCalls      int
-	releaseCalls        int
+	initCalls           int
 	generateErr         error
 	buildErr            error
 	configureErr        error
-	releaseErr          error
+	initErr             error
 	failGenerateForID   string
 	requestLibraryID    string
 	noBuildResponse     bool
@@ -182,9 +182,9 @@ func (m *mockContainerClient) Generate(ctx context.Context, request *docker.Gene
 	return m.generateErr
 }
 
-func (m *mockContainerClient) ReleaseInit(ctx context.Context, request *docker.ReleaseRequest) error {
-	m.releaseCalls++
-	return m.releaseErr
+func (m *mockContainerClient) ReleaseInit(ctx context.Context, request *docker.ReleaseInitRequest) error {
+	m.initCalls++
+	return m.initErr
 }
 
 type MockRepository struct {
