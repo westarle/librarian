@@ -126,7 +126,31 @@ func (r *initRunner) runInitCommand(ctx context.Context, outputDir string) error
 		LibraryVersion: r.cfg.LibraryVersion,
 		Output:         outputDir,
 	}
-	return r.containerClient.ReleaseInit(ctx, initRequest)
+
+	if err := r.containerClient.ReleaseInit(ctx, initRequest); err != nil {
+		return err
+	}
+
+	for _, library := range r.state.Libraries {
+		if r.cfg.Library != "" {
+			if r.cfg.Library != library.ID {
+				continue
+			}
+			// Only copy one library to repository.
+			if err := cleanAndCopyLibrary(r.state, r.repo.GetDir(), r.cfg.Library, outputDir); err != nil {
+				return err
+			}
+
+			break
+		}
+
+		// Copy all libraries to repository.
+		if err := cleanAndCopyLibrary(r.state, r.repo.GetDir(), library.ID, outputDir); err != nil {
+			return err
+		}
+	}
+
+	return cleanAndCopyGlobalAllowlist(r.librarianConfig, r.repo.GetDir(), outputDir)
 }
 
 // updateLibrary updates the library which is the index-th library in the given
@@ -191,4 +215,26 @@ func getChangeType(commit *conventionalcommits.ConventionalCommit) string {
 	}
 
 	return changeType
+}
+
+// cleanAndCopyGlobalAllowlist cleans the files listed in global allowlist in
+// repoDir, excluding read-only files and copies global files from outputDir.
+func cleanAndCopyGlobalAllowlist(cfg *config.LibrarianConfig, repoDir, outputDir string) error {
+	for _, globalFile := range cfg.GlobalFilesAllowlist {
+		if globalFile.Permissions == config.PermissionReadOnly {
+			continue
+		}
+
+		dst := filepath.Join(repoDir, globalFile.Path)
+		if err := os.Remove(dst); err != nil {
+			return fmt.Errorf("failed to remove global file, %s: %w", dst, err)
+		}
+
+		src := filepath.Join(outputDir, globalFile.Path)
+		if err := os.CopyFS(filepath.Dir(dst), os.DirFS(filepath.Dir(src))); err != nil {
+			return fmt.Errorf("failed to copy global file %s to %s: %w", src, dst, err)
+		}
+	}
+
+	return nil
 }
