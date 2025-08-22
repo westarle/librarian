@@ -120,11 +120,12 @@ func (r *initRunner) runInitCommand(ctx context.Context, outputDir string) error
 	}
 
 	initRequest := &docker.ReleaseInitRequest{
-		Cfg:            r.cfg,
-		State:          r.state,
-		LibraryID:      r.cfg.Library,
-		LibraryVersion: r.cfg.LibraryVersion,
-		Output:         outputDir,
+		Cfg:             r.cfg,
+		State:           r.state,
+		LibrarianConfig: r.librarianConfig,
+		LibraryID:       r.cfg.Library,
+		LibraryVersion:  r.cfg.LibraryVersion,
+		Output:          outputDir,
 	}
 
 	if err := r.containerClient.ReleaseInit(ctx, initRequest); err != nil {
@@ -220,6 +221,10 @@ func getChangeType(commit *conventionalcommits.ConventionalCommit) string {
 // cleanAndCopyGlobalAllowlist cleans the files listed in global allowlist in
 // repoDir, excluding read-only files and copies global files from outputDir.
 func cleanAndCopyGlobalAllowlist(cfg *config.LibrarianConfig, repoDir, outputDir string) error {
+	if cfg == nil {
+		slog.Info("librarian config is not setup, skip copying global allowlist")
+		return nil
+	}
 	for _, globalFile := range cfg.GlobalFilesAllowlist {
 		if globalFile.Permissions == config.PermissionReadOnly {
 			continue
