@@ -98,7 +98,17 @@ func (r *initRunner) run(ctx context.Context) error {
 		return fmt.Errorf("failed to create output dir: %s", outputDir)
 	}
 	slog.Info("Initiating a release", "dir", outputDir)
-	return r.runInitCommand(ctx, outputDir)
+	if err := r.runInitCommand(ctx, outputDir); err != nil {
+		return err
+	}
+
+	// TODO: https://github.com/googleapis/librarian/issues/1697
+	// Add commit message after this issue is resolved.
+	if err := commitAndPush(ctx, r.cfg, r.repo, r.ghClient, ""); err != nil {
+		return fmt.Errorf("failed to commit and push: %w", err)
+	}
+
+	return nil
 }
 
 func (r *initRunner) runInitCommand(ctx context.Context, outputDir string) error {
@@ -183,7 +193,7 @@ func updateLibrary(r *initRunner, state *config.LibrarianState, index int) error
 	library := state.Libraries[index]
 	updatedLibrary, err := getChangesOf(r.repo, library)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to update library, %s: %w", library.ID, err)
 	}
 
 	setReleaseTrigger(updatedLibrary, r.cfg.LibraryVersion, true)

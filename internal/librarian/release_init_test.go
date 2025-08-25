@@ -93,6 +93,7 @@ func TestInitRun(t *testing.T) {
 				containerClient: &mockContainerClient{},
 				cfg: &config.Config{
 					Library: "example-id",
+					Push:    false,
 				},
 				state: &config.LibrarianState{
 					Libraries: []*config.LibraryState{
@@ -134,6 +135,7 @@ func TestInitRun(t *testing.T) {
 				workRoot:        t.TempDir(),
 				containerClient: &mockContainerClient{},
 				cfg: &config.Config{
+					Push:    false,
 					Library: "example-id",
 				},
 				state: &config.LibrarianState{
@@ -288,7 +290,31 @@ func TestInitRun(t *testing.T) {
 				partialRepo: t.TempDir(),
 			},
 			wantErr:    true,
-			wantErrMsg: "failed to fetch conventional commits for library",
+			wantErrMsg: "failed to update library",
+		},
+		{
+			name: "failed to commit and push",
+			runner: &initRunner{
+				workRoot:        os.TempDir(),
+				containerClient: &mockContainerClient{},
+				cfg: &config.Config{
+					Push: true,
+				},
+				state: &config.LibrarianState{
+					Libraries: []*config.LibraryState{
+						{
+							ID: "example-id",
+						},
+					},
+				},
+				repo: &MockRepository{
+					Dir: t.TempDir(),
+				},
+				librarianConfig: &config.LibrarianConfig{},
+				partialRepo:     t.TempDir(),
+			},
+			wantErr:    true,
+			wantErrMsg: "failed to commit and push",
 		},
 		{
 			name: "failed to make partial repo",
@@ -323,6 +349,15 @@ func TestInitRun(t *testing.T) {
 			librarianDir := filepath.Join(repoDir, ".librarian")
 			if err := os.MkdirAll(librarianDir, 0755); err != nil {
 				t.Fatalf("os.MkdirAll() = %v", err)
+			}
+
+			// Create the librarian state file.
+			stateFile := filepath.Join(repoDir, ".librarian/state.yaml")
+			if err := os.MkdirAll(filepath.Dir(stateFile), 0755); err != nil {
+				t.Fatalf("os.MkdirAll() = %v", err)
+			}
+			if err := os.WriteFile(stateFile, []byte{}, 0644); err != nil {
+				t.Fatalf("os.WriteFile() = %v", err)
 			}
 
 			err := test.runner.run(context.Background())
