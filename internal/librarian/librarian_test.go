@@ -325,6 +325,27 @@ func TestLookupCommand(t *testing.T) {
 			args:    []string{"sub1", "unknown"},
 			wantErr: true,
 		},
+		{
+			name:     "find sub1 with flag arguments",
+			cmd:      root,
+			args:     []string{"sub1", "-h"},
+			wantCmd:  sub1,
+			wantArgs: []string{"-h"},
+		},
+		{
+			name:     "find sub1sub1 with flag arguments",
+			cmd:      root,
+			args:     []string{"sub1", "sub1sub1", "-h"},
+			wantCmd:  sub1sub1,
+			wantArgs: []string{"-h"},
+		},
+		{
+			name:     "find sub1 with a flag argument in between subcommands",
+			cmd:      root,
+			args:     []string{"sub1", "-h", "sub1sub1"},
+			wantCmd:  sub1,
+			wantArgs: []string{"-h", "sub1sub1"},
+		},
 	}
 
 	for _, tc := range testCases {

@@ -87,6 +87,12 @@ func lookupCommand(cmd *cli.Command, args []string) (*cli.Command, []string, err
 		cmd.Flags.Usage()
 		return nil, nil, err
 	}
+	// If the next argument matches a potential flag (first char is `-`), parse the
+	// remaining arguments as flags. Check if argument is a flag before calling
+	// `lookupCommand` again to avoid flags from being treated as subcommands.
+	if len(args) > 1 && args[1][0] == '-' {
+		return subcommand, args[1:], nil
+	}
 	if len(subcommand.Commands) > 0 {
 		return lookupCommand(subcommand, args[1:])
 	}
