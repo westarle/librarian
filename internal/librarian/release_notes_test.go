@@ -523,7 +523,6 @@ func TestFormatReleaseNotes(t *testing.T) {
 			},
 			wantReleaseNote: fmt.Sprintf(`Librarian Version: %s
 Language Image: go:1.21
-
 <details><summary>my-library: 1.1.0</summary>
 
 ## [1.1.0](https://github.com/owner/repo/compare/my-library-1.0.0...my-library-1.1.0) (%s)
@@ -533,9 +532,7 @@ Language Image: go:1.21
 
 ### Bug Fixes
 * a bug fix ([fedcba0](https://github.com/owner/repo/commit/fedcba0987654321000000000000000000000000))
-
-</details>
-`,
+</details>`,
 				librarianVersion, today),
 		},
 		{
@@ -572,24 +569,22 @@ Language Image: go:1.21
 			},
 			wantReleaseNote: fmt.Sprintf(`Librarian Version: %s
 Language Image: go:1.21
-
 <details><summary>lib-a: 1.1.0</summary>
 
 ## [1.1.0](https://github.com/owner/repo/compare/lib-a-1.0.0...lib-a-1.1.0) (%s)
 
 ### Features
 * feature for a ([1234567](https://github.com/owner/repo/commit/1234567890abcdef000000000000000000000000))
-
 </details>
+
+
 <details><summary>lib-b: 2.0.1</summary>
 
 ## [2.0.1](https://github.com/owner/repo/compare/lib-b-2.0.0...lib-b-2.0.1) (%s)
 
 ### Bug Fixes
 * fix for b ([fedcba0](https://github.com/owner/repo/commit/fedcba0987654321000000000000000000000000))
-
-</details>
-`,
+</details>`,
 				librarianVersion, today, today),
 		},
 		{
@@ -619,16 +614,13 @@ Language Image: go:1.21
 			},
 			wantReleaseNote: fmt.Sprintf(`Librarian Version: %s
 Language Image: go:1.21
-
 <details><summary>my-library: 1.1.0</summary>
 
 ## [1.1.0](https://github.com/owner/repo/compare/my-library-1.0.0...my-library-1.1.0) (%s)
 
 ### Features
 * new feature ([1234567](https://github.com/owner/repo/commit/1234567890abcdef000000000000000000000000))
-
-</details>
-`,
+</details>`,
 				librarianVersion, today),
 		},
 		{
@@ -638,7 +630,7 @@ Language Image: go:1.21
 				Libraries: []*config.LibraryState{},
 			},
 			repo:            &MockRepository{},
-			wantReleaseNote: fmt.Sprintf("Librarian Version: %s\nLanguage Image: go:1.21\n\n", librarianVersion),
+			wantReleaseNote: fmt.Sprintf("Librarian Version: %s\nLanguage Image: go:1.21", librarianVersion),
 		},
 		{
 			name: "error getting commits",
