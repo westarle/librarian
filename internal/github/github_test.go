@@ -561,6 +561,19 @@ func TestGetLabels(t *testing.T) {
 			wantLabels: []string{"label1", "label2"},
 		},
 		{
+			name: "get labels with pagination",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Query().Get("page") == "2" {
+					fmt.Fprint(w, `[{"name": "label3"}]`)
+					return
+				}
+				w.Header().Set("Link", `<http://`+r.Host+`/repos/owner/repo/issues/7/labels?page=2>; rel="next"`)
+				fmt.Fprint(w, `[{"name": "label1"}, {"name": "label2"}]`)
+			},
+			issueNum:   7,
+			wantLabels: []string{"label1", "label2", "label3"},
+		},
+		{
 			name:          "GitHub API error",
 			handler:       func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusInternalServerError) },
 			issueNum:      7,

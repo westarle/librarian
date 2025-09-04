@@ -166,15 +166,24 @@ func (c *Client) CreatePullRequest(ctx context.Context, repo *Repository, remote
 // GetLabels fetches the labels for an issue.
 func (c *Client) GetLabels(ctx context.Context, number int) ([]string, error) {
 	slog.Info("Getting labels", "number", number)
-	labels, _, err := c.Issues.ListLabelsByIssue(ctx, c.repo.Owner, c.repo.Name, number, nil)
-	if err != nil {
-		return nil, err
+	var allLabels []string
+	opts := &github.ListOptions{
+		PerPage: 100,
 	}
-	var labelNames []string
-	for _, label := range labels {
-		labelNames = append(labelNames, *label.Name)
+	for {
+		labels, resp, err := c.Issues.ListLabelsByIssue(ctx, c.repo.Owner, c.repo.Name, number, opts)
+		if err != nil {
+			return nil, err
+		}
+		for _, label := range labels {
+			allLabels = append(allLabels, *label.Name)
+		}
+		if resp.NextPage == 0 {
+			break
+		}
+		opts.Page = resp.NextPage
 	}
-	return labelNames, nil
+	return allLabels, nil
 }
 
 // ReplaceLabels replaces all labels for an issue.
