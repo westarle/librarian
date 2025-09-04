@@ -1403,6 +1403,69 @@ func TestCommitAndPush(t *testing.T) {
 	}
 }
 
+func TestAddLabelsToPullRequest(t *testing.T) {
+	for _, test := range []struct {
+		name                  string
+		setupMockRepo         func(t *testing.T) gitrepo.Repository
+		mockGithubClient      *mockGitHubClient
+		prMetadata            github.PullRequestMetadata
+		wantPullRequestLabels []string
+		wantErr               bool
+		expectedErrMsg        string
+	}{
+		{
+			name: "Add All Labels",
+			setupMockRepo: func(t *testing.T) gitrepo.Repository {
+				return &MockRepository{}
+			},
+			mockGithubClient: &mockGitHubClient{},
+			prMetadata: github.PullRequestMetadata{
+				Repo:   &github.Repository{Owner: "test-owner", Name: "test-repo"},
+				Number: 7,
+			},
+			wantPullRequestLabels: []string{"release:pending", "1234", "label1234"},
+		},
+		{
+			name: "Failed to add labels",
+			setupMockRepo: func(t *testing.T) gitrepo.Repository {
+				return &MockRepository{}
+			},
+			mockGithubClient: &mockGitHubClient{
+				addLabelsToIssuesErr: errors.New("Can't add labels"),
+			},
+			prMetadata: github.PullRequestMetadata{
+				Repo:   &github.Repository{Owner: "test-owner", Name: "test-repo"},
+				Number: 7,
+			},
+			wantPullRequestLabels: []string{"release:pending", "1234", "label1234"},
+			wantErr:               true,
+			expectedErrMsg:        "failed to add labels to pull request",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			client := test.mockGithubClient
+			prMetadata := test.prMetadata
+			err := addLabelsToPullRequest(context.Background(), client, test.wantPullRequestLabels, &prMetadata)
+
+			if test.wantErr {
+				if err == nil {
+					t.Errorf("addLabelsToPullRequest() expected error, got nil")
+				}
+				if test.expectedErrMsg != "" && !strings.Contains(err.Error(), test.expectedErrMsg) {
+					t.Errorf("addLabelsToPullRequest() error = %v, expected to contain: %q", err, test.expectedErrMsg)
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("%s: addLabelsToPullRequest() returned unexpected error: %v", test.name, err)
+			}
+			if diff := cmp.Diff(test.wantPullRequestLabels, test.mockGithubClient.labels); diff != "" {
+				t.Errorf("addLabelsToPullRequest() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestCopyLibraryFiles(t *testing.T) {
 	t.Parallel()
 	setup := func(src string, files []string) {

@@ -48,14 +48,15 @@ type GitHubClientFactory func(token string, repo *github.Repository) (GitHubClie
 type ContainerClientFactory func(workRoot, image, userUID, userGID string) (ContainerClient, error)
 
 type commitInfo struct {
-	cfg             *config.Config
-	state           *config.LibrarianState
-	repo            gitrepo.Repository
-	ghClient        GitHubClient
-	idToCommits     map[string]string
-	failedLibraries []string
-	commitMessage   string
-	prType          string
+	cfg               *config.Config
+	state             *config.LibrarianState
+	repo              gitrepo.Repository
+	ghClient          GitHubClient
+	idToCommits       map[string]string
+	failedLibraries   []string
+	commitMessage     string
+	prType            string
+	pullRequestLabels []string
 }
 
 type commandRunner struct {
@@ -328,8 +329,7 @@ func copyLibrary(dst, src string, library *config.LibraryState) error {
 	return nil
 }
 
-// commitAndPush creates a commit and push request to GitHub for the generated
-// changes.
+// commitAndPush creates a commit and push request to GitHub for the generated changes.
 // It uses the GitHub client to create a PR with the specified branch, title, and
 // description to the repository.
 func commitAndPush(ctx context.Context, info *commitInfo) error {
@@ -380,10 +380,28 @@ func commitAndPush(ctx context.Context, info *commitInfo) error {
 		return fmt.Errorf("failed to create pull request body: %w", err)
 	}
 
-	if _, err = info.ghClient.CreatePullRequest(ctx, gitHubRepo, branch, cfg.Branch, title, prBody); err != nil {
+	pullRequestMetadata, err := info.ghClient.CreatePullRequest(ctx, gitHubRepo, branch, cfg.Branch, title, prBody)
+	if err != nil {
 		return fmt.Errorf("failed to create pull request: %w", err)
 	}
 
+	return addLabelsToPullRequest(ctx, info.ghClient, info.pullRequestLabels, pullRequestMetadata)
+}
+
+// addLabelsToPullRequest adds a list of labels to a single pull request (specified by the id number).
+// Should only be called on a valid Github pull request.
+// Passing in `nil` for labels will no-op and an empty list for labels will clear all labels on the PR.
+// TODO: Consolidate the params to a potential PullRequestInfo struct.
+func addLabelsToPullRequest(ctx context.Context, ghClient GitHubClient, pullRequestLabels []string, prMetadata *github.PullRequestMetadata) error {
+	// Do not update if there are aren't labels provided
+	if pullRequestLabels == nil {
+		return nil
+	}
+	// Github API treats Issues and Pull Request the same
+	// https://docs.github.com/en/rest/issues/labels#add-labels-to-an-issue
+	if err := ghClient.AddLabelsToIssue(ctx, prMetadata.Repo, prMetadata.Number, pullRequestLabels); err != nil {
+		return fmt.Errorf("failed to add labels to pull request: %w", err)
+	}
 	return nil
 }
 
