@@ -41,6 +41,10 @@ const (
 	release  = "release"
 )
 
+var globalPreservePatterns = []string{
+	fmt.Sprintf(`^%s(/.*)?$`, regexp.QuoteMeta(config.GeneratorInputDir)), // Preserve the generator-input directory and its contents.
+}
+
 // GitHubClientFactory type for creating a GitHubClient.
 type GitHubClientFactory func(token string, repo *github.Repository) (GitHubClient, error)
 
@@ -254,7 +258,10 @@ func cleanAndCopyLibrary(state *config.LibrarianState, repoDir, libraryID, outpu
 		}
 	}
 
-	if err := clean(repoDir, removePatterns, library.PreserveRegex); err != nil {
+	preservePatterns := append(library.PreserveRegex,
+		globalPreservePatterns...)
+
+	if err := clean(repoDir, removePatterns, preservePatterns); err != nil {
 		return fmt.Errorf("failed to clean library, %s: %w", library.ID, err)
 	}
 
