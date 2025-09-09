@@ -166,6 +166,7 @@ func (r *generateRunner) run(ctx context.Context) error {
 		}
 		idToCommits[libraryID] = oldCommit
 	} else {
+		succeededGenerations := 0
 		failedGenerations := 0
 		for _, library := range r.state.Libraries {
 			oldCommit, err := r.generateSingleLibrary(ctx, library.ID, outputDir)
@@ -177,9 +178,15 @@ func (r *generateRunner) run(ctx context.Context) error {
 				// Only add the mapping if library generation is successful so that
 				// failed library will not appear in generation PR body.
 				idToCommits[library.ID] = oldCommit
+				succeededGenerations++
 			}
 		}
-		slog.Info("generation statistics", "all", len(r.state.Libraries), "failures", failedGenerations)
+
+		slog.Info(
+			"generation statistics",
+			"all", len(r.state.Libraries),
+			"successes", succeededGenerations,
+			"failures", failedGenerations)
 		if failedGenerations > 0 && failedGenerations == len(r.state.Libraries) {
 			return fmt.Errorf("all %d libraries failed to generate", failedGenerations)
 		}
@@ -199,10 +206,8 @@ func (r *generateRunner) run(ctx context.Context) error {
 		commitMessage:   "chore: generate libraries",
 		prType:          generate,
 	}
-	if err := commitAndPush(ctx, commitInfo); err != nil {
-		return err
-	}
-	return nil
+
+	return commitAndPush(ctx, commitInfo)
 }
 
 // generateSingleLibrary manages the generation of a single client library.
