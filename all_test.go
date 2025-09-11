@@ -50,6 +50,7 @@ var ignoredExts = map[string]bool{
 	".yml":        true,
 	".yaml":       true,
 	".txt":        true,
+	".webp":       true,
 }
 
 var ignoredDirs = []string{
