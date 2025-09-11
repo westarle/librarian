@@ -174,9 +174,17 @@ func (r *tagAndReleaseRunner) processPullRequest(ctx context.Context, p *github.
 		slog.Warn("no release details found in pull request body, skipping")
 		return nil
 	}
+
+	// Add a tag to the release commit to trigger louhi flow: "release-please-{pr number}"
+	//TODO: remove this logic as part of https://github.com/googleapis/librarian/issues/2044
+	commitSha := p.GetMergeCommitSHA()
+	tagName := fmt.Sprintf("release-please-%d", p.GetNumber())
+	if err := r.ghClient.CreateTag(ctx, tagName, commitSha); err != nil {
+		return fmt.Errorf("failed to create tag %s: %w", tagName, err)
+	}
+
 	for _, release := range releases {
 		slog.Info("creating release", "library", release.Library, "version", release.Version)
-		commitish := p.GetMergeCommitSHA()
 
 		lib := r.state.LibraryByID(release.Library)
 		if lib == nil {
@@ -186,7 +194,7 @@ func (r *tagAndReleaseRunner) processPullRequest(ctx context.Context, p *github.
 		// Create the release.
 		tagName := formatTag(lib, release.Version)
 		releaseName := fmt.Sprintf("%s %s", release.Library, release.Version)
-		if _, err := r.ghClient.CreateRelease(ctx, tagName, releaseName, release.Body, commitish); err != nil {
+		if _, err := r.ghClient.CreateRelease(ctx, tagName, releaseName, release.Body, commitSha); err != nil {
 			return fmt.Errorf("failed to create release: %w", err)
 		}
 

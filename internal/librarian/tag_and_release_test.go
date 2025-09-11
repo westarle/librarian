@@ -374,6 +374,7 @@ func TestProcessPullRequest(t *testing.T) {
 		wantErrMsg             string
 		wantCreateReleaseCalls int
 		wantReplaceLabelsCalls int
+		wantCreateTagCalls     int
 	}{
 		{
 			name:                   "happy path",
@@ -382,6 +383,7 @@ func TestProcessPullRequest(t *testing.T) {
 			state:                  state,
 			wantCreateReleaseCalls: 1,
 			wantReplaceLabelsCalls: 1,
+			wantCreateTagCalls:     1,
 		},
 		{
 			name:     "no release details",
@@ -405,6 +407,7 @@ func TestProcessPullRequest(t *testing.T) {
 			state:                  state,
 			wantErrMsg:             "failed to create release",
 			wantCreateReleaseCalls: 1,
+			wantCreateTagCalls:     1,
 		},
 		{
 			name: "replace labels fails",
@@ -416,6 +419,17 @@ func TestProcessPullRequest(t *testing.T) {
 			wantErrMsg:             "failed to replace labels",
 			wantCreateReleaseCalls: 1,
 			wantReplaceLabelsCalls: 1,
+			wantCreateTagCalls:     1,
+		},
+		{
+			name: "create tag fails",
+			pr:   prWithRelease,
+			ghClient: &mockGitHubClient{
+				createTagErr: errors.New("create tag error"),
+			},
+			state:              state,
+			wantErrMsg:         "failed to create tag",
+			wantCreateTagCalls: 1,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
