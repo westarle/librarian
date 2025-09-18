@@ -1679,16 +1679,6 @@ func TestPathTemplateGeneration(t *testing.T) {
 			want: "/{field}",
 		},
 		{
-			name: "Top-Level Double Wildcard",
-			binding: &pathBindingAnnotation{
-				PathFmt: "/{}",
-				Substitutions: []*bindingSubstitution{
-					{FieldName: "field"},
-				},
-			},
-			want: "/{field}",
-		},
-		{
 			name: "Path with Custom Verb",
 			binding: &pathBindingAnnotation{
 				PathFmt: "/v1/things/{}:customVerb",
