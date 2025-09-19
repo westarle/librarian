@@ -94,7 +94,7 @@ impl super::stub::{{Codec.Name}} for {{Codec.Name}} {
             {{^Codec.HasVariablePath}}
             let path = "{{Codec.PathFmt}}".to_string();
             {{/Codec.HasVariablePath}}
-            let path_template = "{{Codec.PathTemplate}}".to_string();
+            let path_template = "{{Codec.PathTemplate}}";
 
             let builder = self
                 .inner
@@ -133,7 +133,7 @@ impl super::stub::{{Codec.Name}} for {{Codec.Name}} {
             {{/PathInfo.Bindings}}
             gax::error::Error::binding(BindingError { paths })
         })??;
-        let options = gax::options::internal::set_path_template(options, Some(path_template));
+        let options = gax::options::internal::set_path_template(options, Some(path_template.to_string()));
         let options = gax::options::internal::set_default_idempotency(
             options,
             {{! TODO(#2588) - return idempotency from the above closure }}
