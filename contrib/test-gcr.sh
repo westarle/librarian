@@ -12,15 +12,14 @@ set -euo pipefail
 # Displays usage information for the script.
 usage() {
   cat <<EOF
-Usage: $0 --gcr-path <path> --librarian-path <path> [options]
 
 Options:
   --gcr-path <path>         Absolute path to the local google-cloud-rust repository clone. (Required)
   --librarian-path <path>   Absolute path to the local librarian repository clone. (Required)
+  --gcr-branch <branch>     Branch in google-cloud-rust to reset to. (Default: upstream/main)
   --cargo-args <string>     Additional space-separated arguments to pass to cargo test.
-  --non-interactive         Run in non-interactive mode. On failure, always clean up without prompting.
   --dry-run                 Print commands that would be executed instead of running them.
-  --test                    Run the script's self-tests.
+  --test                    Run the script\'s self-tests.
   -h, --help                Show this help message.
 EOF
 }
@@ -29,8 +28,8 @@ EOF
 parse_args() {
   GCR_PATH=""
   LIBRARIAN_PATH=""
+  GCR_BRANCH="upstream/main"
   CARGO_ARGS=""
-  NON_INTERACTIVE=false
   DRY_RUN=false
   RUN_TESTS=false
 
@@ -44,13 +43,13 @@ parse_args() {
         LIBRARIAN_PATH="$2"
         shift 2
         ;; 
+      --gcr-branch)
+        GCR_BRANCH="$2"
+        shift 2
+        ;; 
       --cargo-args)
         CARGO_ARGS="$2"
         shift 2
-        ;; 
-      --non-interactive)
-        NON_INTERACTIVE=true
-        shift
         ;; 
       --dry-run)
         DRY_RUN=true
@@ -128,31 +127,17 @@ check_dependencies() {
 }
 
 # Cleans up the google-cloud-rust repository by resetting changes.
-# Prompts the user if not in non-interactive mode and an error occurred.
 # @param {integer} exit_code The exit code of the script.
 cleanup_gcr() {
   local exit_code=$1 # Passed from trap
 
   if [[ $exit_code -eq 0 ]]; then
     echo "Script finished successfully. Cleaning up google-cloud-rust..."
-    run_cmd "git reset --hard HEAD"
-    run_cmd "git clean -fdx"
   else
-    echo "An error occurred (exit code: $exit_code)."
-    if [[ "$NON_INTERACTIVE" == "true" ]]; then
-      echo "Non-interactive mode: Cleaning up google-cloud-rust..."
-      run_cmd "git reset --hard HEAD"
-      run_cmd "git clean -fdx"
-    else
-      read -p "Keep changes in google-cloud-rust? (y/N): " choice
-      case "$choice" in
-        y|Y ) echo "Keeping changes.";;
-        * )   echo "Cleaning up google-cloud-rust...";
-              run_cmd "git reset --hard HEAD";
-              run_cmd "git clean -fdx";;
-      esac
-    fi
+    echo "An error occurred (exit code: $exit_code). Cleaning up google-cloud-rust..."
   fi
+  run_cmd "git reset --hard HEAD"
+  run_cmd "git clean -fdx"
   return $exit_code
 }
 
@@ -185,8 +170,8 @@ main() {
 
   echo "GCR_PATH: $GCR_PATH"
   echo "LIBRARIAN_PATH: $LIBRARIAN_PATH"
+  echo "GCR_BRANCH: $GCR_BRANCH"
   echo "CARGO_ARGS: $CARGO_ARGS"
-  echo "NON_INTERACTIVE: $NON_INTERACTIVE"
   echo "DRY_RUN: $DRY_RUN"
 
   echo "Preparing google-cloud-rust repository..."
@@ -200,9 +185,9 @@ main() {
     exit 1
   fi
 
-  # Reset to the latest upstream version.
+  # Reset to the target branch.
   run_cmd "git fetch upstream"
-  run_cmd "git reset --hard upstream/main"
+  run_cmd "git reset --hard $GCR_BRANCH"
 
   echo "Regenerating showcase client..."
   # Build and run sidekick from the local librarian clone to regenerate code.
@@ -322,12 +307,13 @@ test_parse_args_required() {
 
 # Tests that parse_args correctly sets variables for all options.
 test_parse_args_options() {
-  parse_args --gcr-path /gcr --librarian-path /lib --cargo-args "--foo --bar" --non-interactive --dry-run
+  parse_args --gcr-path /gcr --librarian-path /lib --gcr-branch my-branch --cargo-args "--foo --bar" --dry-run
   assert_eq "/gcr" "$GCR_PATH" "GCR_PATH option" || return 1
   assert_eq "/lib" "$LIBRARIAN_PATH" "LIBRARIAN_PATH option" || return 1
+  assert_eq "my-branch" "$GCR_BRANCH" "GCR_BRANCH option" || return 1
   assert_eq "--foo --bar" "$CARGO_ARGS" "CARGO_ARGS option" || return 1
-  assert_eq "true" "$NON_INTERACTIVE" "NON_INTERACTIVE option" || return 1
   assert_eq "true" "$DRY_RUN" "DRY_RUN option" || return 1
+  assert_eq "upstream/main" "$(parse_args --gcr-path /gcr --librarian-path /lib && echo $GCR_BRANCH)" "GCR_BRANCH default" || return 1
 }
 
 # Tests that parse_args fails if --gcr-path is missing.
@@ -397,7 +383,6 @@ test_run_cmd_exec() {
 # Tests cleanup_gcr in dry-run mode.
 test_cleanup_gcr_dry_run() {
   export DRY_RUN=true
-  export NON_INTERACTIVE=true
 
   local output=$(cleanup_gcr 1 2>&1)
   assert_output_contains "[DRY RUN] Would execute: git reset --hard HEAD" "$output" "cleanup_gcr dry run error reset" || return 1
@@ -407,7 +392,7 @@ test_cleanup_gcr_dry_run() {
   assert_output_contains "[DRY RUN] Would execute: git reset --hard HEAD" "$output" "cleanup_gcr dry run success reset" || return 1
   assert_output_contains "[DRY RUN] Would execute: git clean -fdx" "$output" "cleanup_gcr dry run success clean" || return 1
 
-  unset DRY_RUN NON_INTERACTIVE
+  unset DRY_RUN
 }
 
 # Tests the sidekick command construction in dry-run mode.
@@ -449,8 +434,9 @@ test_main_git_fetch_dry_run() {
 # Tests the git reset command in dry-run mode.
 test_main_git_reset_dry_run() {
   export DRY_RUN=true
-  local output=$(run_cmd "git reset --hard upstream/main")
-  assert_output_contains "git reset --hard upstream/main" "$output" "main git reset dry run" || return 1
+  GCR_BRANCH="test-branch"
+  local output=$(run_cmd "git reset --hard $GCR_BRANCH")
+  assert_output_contains "git reset --hard test-branch" "$output" "main git reset dry run" || return 1
   unset DRY_RUN
 }
 
