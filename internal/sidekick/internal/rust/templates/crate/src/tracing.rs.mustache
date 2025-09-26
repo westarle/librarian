@@ -51,13 +51,30 @@ where T: super::stub::{{Codec.Name}} + std::fmt::Debug + Send + Sync {
 impl<T> super::stub::{{Codec.Name}} for {{Codec.Name}}<T>
 where T: super::stub::{{Codec.Name}} + std::fmt::Debug + Send + Sync {
     {{#Codec.Methods}}
-    #[tracing::instrument(ret)]
     async fn {{Codec.Name}}(
         &self,
         req: {{InputType.Codec.QualifiedName}},
         options: gax::options::RequestOptions,
     ) -> Result<gax::response::Response<{{Codec.ReturnType}}>> {
-        self.inner.{{Codec.Name}}(req, options).await
+        use tracing::Instrument;
+        const SPAN_NAME: &str = "{{Model.Codec.PackageNamespace}}.client.{{Codec.ServiceNameToPascal}}.{{Codec.Name}}";
+        let client_request_span = gaxi::observability::create_client_request_span(
+            SPAN_NAME,
+            &crate::info::INSTRUMENTATION_CLIENT_INFO,
+        );
+
+        let result = self.inner.{{Codec.Name}}(req, options)
+            .instrument(client_request_span.clone()).await;
+
+        match &result {
+            Ok(response) => {
+                gaxi::observability::enrich_client_request_span(response, &client_request_span);
+            }
+            Err(e) => {
+                gaxi::observability::enrich_client_request_span_err(e, &client_request_span);
+            }
+        }
+        result
     }
 
     {{/Codec.Methods}}
