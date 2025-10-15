@@ -102,10 +102,13 @@ impl super::stub::{{Codec.Name}} for {{Codec.Name}} {
         );
         {{/HasAutoPopulatedFields}}
         {{#Codec.DetailedTracingAttributes}}
-        let (builder, method, path_template) = None
+        #[cfg(google_cloud_unstable_tracing)]
+        let (builder, method, path_template) = None;
+        #[cfg(not(google_cloud_unstable_tracing))]
+        let (builder, method) = None;
         {{/Codec.DetailedTracingAttributes}}
         {{^Codec.DetailedTracingAttributes}}
-        let (builder, method) = None
+        let (builder, method) = None;
         {{/Codec.DetailedTracingAttributes}}
         {{#PathInfo.Bindings}}
         .or_else(|| {
@@ -121,6 +124,7 @@ impl super::stub::{{Codec.Name}} for {{Codec.Name}} {
             let path = "{{Codec.PathFmt}}".to_string();
             {{/Codec.HasVariablePath}}
             {{#Codec.DetailedTracingAttributes}}
+            #[cfg(google_cloud_unstable_tracing)]
             let path_template = "{{Codec.PathTemplate}}";
             {{/Codec.DetailedTracingAttributes}}
 
@@ -139,10 +143,14 @@ impl super::stub::{{Codec.Name}} for {{Codec.Name}} {
             {{#Codec.QueryParams}}
             {{{Codec.AddQueryParameter}}}
             {{/Codec.QueryParams}}
+
             let builder = Ok(builder);
             {{/Codec.QueryParamsCanFail}}
             {{#Codec.DetailedTracingAttributes}}
+            #[cfg(google_cloud_unstable_tracing)]
             Some(builder.map(|b| (b, reqwest::Method::{{Verb}}, path_template)))
+            #[cfg(not(google_cloud_unstable_tracing))]
+            Some(builder.map(|b| (b, reqwest::Method::{{Verb}})))
             {{/Codec.DetailedTracingAttributes}}
             {{^Codec.DetailedTracingAttributes}}
             Some(builder.map(|b| (b, reqwest::Method::{{Verb}})))
