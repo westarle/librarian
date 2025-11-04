@@ -223,6 +223,8 @@ type methodAnnotation struct {
 	Attributes                []string
 	RoutingRequired           bool
 	DetailedTracingAttributes bool
+	ResourceNameField         string
+	DefaultHost               string
 }
 
 type pathInfoAnnotation struct {
@@ -787,6 +789,40 @@ func (c *codec) annotateMessage(m *api.Message, model *api.API, full bool) {
 	annotations.Internal = slices.Contains(c.internalTypes, m.ID)
 }
 
+func (c *codec) findResourceNameField(m *api.Method) string {
+	if m.PathInfo == nil || m.PathInfo.Codec == nil {
+		return ""
+	}
+	ann, ok := m.PathInfo.Codec.(*pathInfoAnnotation)
+	if !ok || len(ann.UniqueParameters) == 0 {
+		return ""
+	}
+
+	// Heuristic:
+	// 1. "name"
+	// 2. "parent"
+	// 3. "*.name" (e.g. "secret.name")
+	// 4. First available parameter
+
+	for _, p := range ann.UniqueParameters {
+		if p.FieldName == "name" {
+			return p.FieldAccessor
+		}
+	}
+	for _, p := range ann.UniqueParameters {
+		if p.FieldName == "parent" {
+			return p.FieldAccessor
+		}
+	}
+	for _, p := range ann.UniqueParameters {
+		if strings.HasSuffix(p.FieldName, ".name") {
+			return p.FieldAccessor
+		}
+	}
+
+	return ann.UniqueParameters[0].FieldAccessor
+}
+
 func (c *codec) annotateMethod(m *api.Method) {
 	c.annotatePathInfo(m)
 	for _, routing := range m.Routing {
@@ -820,6 +856,8 @@ func (c *codec) annotateMethod(m *api.Method) {
 		HasVeneer:                 c.hasVeneer,
 		RoutingRequired:           c.routingRequired,
 		DetailedTracingAttributes: c.detailedTracingAttributes,
+		ResourceNameField:         c.findResourceNameField(m),
+		DefaultHost:               m.Service.DefaultHost,
 	}
 	if annotation.Name == "clone" {
 		// Some methods look too similar to standard Rust traits. Clippy makes

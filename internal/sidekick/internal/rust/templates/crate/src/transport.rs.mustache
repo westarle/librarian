@@ -162,6 +162,16 @@ impl super::stub::{{Codec.Name}} for {{Codec.Name}} {
         {{#Codec.DetailedTracingAttributes}}
         #[cfg(google_cloud_unstable_tracing)]
         let options = gax::options::internal::set_path_template(options, _path_template);
+        #[cfg(google_cloud_unstable_tracing)]
+        let options = {
+            {{#Codec.ResourceNameField}}
+            let resource_name = format!("//{{Codec.DefaultHost}}/{}", {{{Codec.ResourceNameField}}}.unwrap_or(""));
+            gax::options::internal::set_resource_name(options, resource_name)
+            {{/Codec.ResourceNameField}}
+            {{^Codec.ResourceNameField}}
+            options
+            {{/Codec.ResourceNameField}}
+        };
         {{/Codec.DetailedTracingAttributes}}
         let options = gax::options::internal::set_default_idempotency(
             options,
