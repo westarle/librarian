@@ -1994,6 +1994,14 @@ func TestAnnotateResourceNameField(t *testing.T) {
 			MethodID: ".test.v1.Service.Update",
 			Want:     "Some(&req).map(|m| &m.secret).map(|m| &m.name).map(|s| s.as_str())",
 		},
+		{
+			MethodID: ".test.v1.Service.FirstField",
+			Want:     "Some(&req).map(|m| &m.other_field).map(|s| s.as_str())",
+		},
+		{
+			MethodID: ".test.v1.Service.NoResource",
+			Want:     "",
+		},
 	}
 
 	for _, test := range tests {
@@ -2048,6 +2056,17 @@ func annotateResourceNameModel(t *testing.T) *api.API {
 		Fields: []*api.Field{
 			{Name: "secret", Typez: api.MESSAGE_TYPE, TypezID: ".test.v1.Secret", ID: ".test.v1.UpdateRequest.secret"},
 		},
+	}
+	firstFieldRequest := &api.Message{
+		Name: "FirstFieldRequest",
+		ID:   ".test.v1.FirstFieldRequest",
+		Fields: []*api.Field{
+			{Name: "other_field", Typez: api.STRING_TYPE, ID: ".test.v1.FirstFieldRequest.other_field"},
+		},
+	}
+	noResourceRequest := &api.Message{
+		Name: "NoResourceRequest",
+		ID:   ".test.v1.NoResourceRequest",
 	}
 
 	service := &api.Service{
@@ -2108,11 +2127,44 @@ func annotateResourceNameModel(t *testing.T) *api.API {
 					},
 				},
 			},
+			{
+				Name:         "FirstField",
+				ID:           ".test.v1.Service.FirstField",
+				InputType:    firstFieldRequest,
+				InputTypeID:  ".test.v1.FirstFieldRequest",
+				OutputTypeID: ".test.v1.Secret",
+				PathInfo: &api.PathInfo{
+					Bindings: []*api.PathBinding{
+						{
+							Verb: "GET",
+							PathTemplate: api.NewPathTemplate().
+								WithLiteral("resources").
+								WithVariableNamed("other_field"),
+						},
+					},
+				},
+			},
+			{
+				Name:         "NoResource",
+				ID:           ".test.v1.Service.NoResource",
+				InputType:    noResourceRequest,
+				InputTypeID:  ".test.v1.NoResourceRequest",
+				OutputTypeID: ".test.v1.Secret",
+				PathInfo: &api.PathInfo{
+					Bindings: []*api.PathBinding{
+						{
+							Verb: "GET",
+							PathTemplate: api.NewPathTemplate().
+								WithLiteral("resources"),
+						},
+					},
+				},
+			},
 		},
 	}
 
 	model := api.NewTestAPI(
-		[]*api.Message{secret, getRequest, createRequest, updateRequest},
+		[]*api.Message{secret, getRequest, createRequest, updateRequest, firstFieldRequest, noResourceRequest},
 		[]*api.Enum{},
 		[]*api.Service{service})
 	return model
