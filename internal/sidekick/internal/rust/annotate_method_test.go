@@ -64,6 +64,7 @@ func TestAnnotateMethodNames(t *testing.T) {
 				ServiceNameToCamel:  "resourceService",
 				ServiceNameToSnake:  "resource_service",
 				ReturnType:          "()",
+				ResourceNameField:   "Some(&req)",
 			},
 		},
 		{
