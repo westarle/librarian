@@ -504,9 +504,10 @@ func processMessage(state *api.APIState, m *descriptorpb.DescriptorProto, mFQN, 
 			JSONName:      mf.GetJsonName(),
 			Deprecated:    mf.GetOptions().GetDeprecated(),
 			Optional:      isProtoOptional,
-			IsOneOf:       mf.OneofIndex != nil && !isProtoOptional,
-			AutoPopulated: protobufIsAutoPopulated(mf),
-			Behavior:      protobufFieldBehavior(mf),
+			IsOneOf:             mf.OneofIndex != nil && !isProtoOptional,
+			AutoPopulated:       protobufIsAutoPopulated(mf),
+			IsResourceReference: protobufIsResourceReference(mf),
+			Behavior:            protobufFieldBehavior(mf),
 		}
 		normalizeTypes(state, mf, field)
 		message.Fields = append(message.Fields, field)
