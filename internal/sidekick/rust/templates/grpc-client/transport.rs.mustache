@@ -94,14 +94,14 @@ impl {{Codec.Name}} {
     pub async fn new(config: gaxi::options::ClientConfig) -> gax::client_builder::Result<Self> {
         {{#Codec.DetailedTracingAttributes}}
         #[cfg(google_cloud_unstable_tracing)]
-        let tracing_enabled = gaxi::options::tracing_enabled(&config);
+        let inner = gaxi::grpc::Client::new_with_instrumentation(
+            config,
+            DEFAULT_HOST,
+            &info::INSTRUMENTATION_CLIENT_INFO,
+        )
+        .await?;
+        #[cfg(not(google_cloud_unstable_tracing))]
         let inner = gaxi::grpc::Client::new(config, DEFAULT_HOST).await?;
-        #[cfg(google_cloud_unstable_tracing)]
-        let inner = if tracing_enabled {
-            inner.with_instrumentation(&info::INSTRUMENTATION_CLIENT_INFO)
-        } else {
-            inner
-        };
         {{/Codec.DetailedTracingAttributes}}
         {{^Codec.DetailedTracingAttributes}}
         let inner = gaxi::grpc::Client::new(config, DEFAULT_HOST).await?;
