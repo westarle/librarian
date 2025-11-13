@@ -1964,7 +1964,7 @@ func TestOneOfExampleFieldSelection(t *testing.T) {
 	}
 }
 
-func TestFindPrimaryResourceField(t *testing.T) {
+func TestFindResourceNameFields(t *testing.T) {
 	// Helper to create a field
 	makeField := func(name string, isRef bool, msgType *api.Message) *api.Field {
 		f := &api.Field{Name: name, ID: ".test.Request." + name, IsResourceReference: isRef}
@@ -2014,32 +2014,31 @@ func TestFindPrimaryResourceField(t *testing.T) {
 		}
 		var uniqueParams []*bindingSubstitution
 		for _, name := range uniqueParamNames {
-
 			uniqueParams = append(uniqueParams, &bindingSubstitution{FieldName: name})
 		}
 		m.PathInfo.Codec = &pathInfoAnnotation{UniqueParameters: uniqueParams}
 	}
 
 	tests := []struct {
-		name     string
-		method   *api.Method
-		setup    func(*api.Method) // To add PathInfo Codec
-		wantPath []string
+		name      string
+		method    *api.Method
+		setup     func(*api.Method) // To add PathInfo Codec
+		wantPaths [][]string
 	}{
 		{
-			name:     "No annotated fields",
-			method:   makeMethod(&api.Message{ID: ".test.NoAnnotated", Fields: []*api.Field{makeField("field", false, nil)}}),
-			wantPath: nil,
+			name:      "No annotated fields",
+			method:    makeMethod(&api.Message{ID: ".test.NoAnnotated", Fields: []*api.Field{makeField("field", false, nil)}}),
+			wantPaths: nil,
 		},
 		{
-			name:     "One top-level",
-			method:   makeMethod(&api.Message{ID: ".test.OneTop", Fields: []*api.Field{makeField("name", true, nil)}}),
-			wantPath: []string{"name"},
+			name:      "One top-level",
+			method:    makeMethod(&api.Message{ID: ".test.OneTop", Fields: []*api.Field{makeField("name", true, nil)}}),
+			wantPaths: [][]string{{"name"}},
 		},
 		{
-			name:     "One nested",
-			method:   makeMethod(&api.Message{ID: ".test.OneNested", Fields: []*api.Field{makeField("nested_field", false, nestedMsg)}}),
-			wantPath: []string{"nested_field", "nested_name"},
+			name:      "One nested",
+			method:    makeMethod(&api.Message{ID: ".test.OneNested", Fields: []*api.Field{makeField("nested_field", false, nestedMsg)}}),
+			wantPaths: [][]string{{"nested_field", "nested_name"}, {"nested_field", "another_nested"}},
 		},
 		{
 			name:   "Multiple top-level, name1 in path",
@@ -2047,7 +2046,7 @@ func TestFindPrimaryResourceField(t *testing.T) {
 			setup: func(m *api.Method) {
 				addPathInfoCodec(m, "name1")
 			},
-			wantPath: []string{"name1"},
+			wantPaths: [][]string{{"name1"}, {"name2"}},
 		},
 		{
 			name:   "Multiple top-level, name2 in path",
@@ -2055,13 +2054,13 @@ func TestFindPrimaryResourceField(t *testing.T) {
 			setup: func(m *api.Method) {
 				addPathInfoCodec(m, "name2")
 			},
-			wantPath: []string{"name2"},
+			wantPaths: [][]string{{"name2"}, {"name1"}},
 		},
 		{
-			name:     "Multiple top-level, none in path",
-			method:   makeMethod(&api.Message{ID: ".test.MultiTopNone", Fields: []*api.Field{makeField("name1", true, nil), makeField("name2", true, nil)}}),
-			setup:    func(m *api.Method) { addPathInfoCodec(m) },
-			wantPath: []string{"name1"}, // Proto order
+			name:      "Multiple top-level, none in path",
+			method:    makeMethod(&api.Message{ID: ".test.MultiTopNone", Fields: []*api.Field{makeField("name1", true, nil), makeField("name2", true, nil)}}),
+			setup:     func(m *api.Method) { addPathInfoCodec(m) },
+			wantPaths: [][]string{{"name1"}, {"name2"}}, // Proto order
 		},
 		{
 			name:   "Multiple top-level, both in path",
@@ -2069,7 +2068,7 @@ func TestFindPrimaryResourceField(t *testing.T) {
 			setup: func(m *api.Method) {
 				addPathInfoCodec(m, "name1", "name2")
 			},
-			wantPath: []string{"name1"}, // Proto order
+			wantPaths: [][]string{{"name1"}, {"name2"}}, // Proto order
 		},
 		{
 			name:   "Mixed, top-level in path",
@@ -2077,7 +2076,7 @@ func TestFindPrimaryResourceField(t *testing.T) {
 			setup: func(m *api.Method) {
 				addPathInfoCodec(m, "top_name")
 			},
-			wantPath: []string{"top_name"},
+			wantPaths: [][]string{{"top_name"}, {"nested_field", "nested_name"}, {"nested_field", "another_nested"}},
 		},
 		{
 			name:   "Mixed, nested in path",
@@ -2085,13 +2084,13 @@ func TestFindPrimaryResourceField(t *testing.T) {
 			setup: func(m *api.Method) {
 				addPathInfoCodec(m, "nested_field.nested_name")
 			},
-			wantPath: []string{"top_name"}, // Top-level still preferred
+			wantPaths: [][]string{{"top_name"}, {"nested_field", "nested_name"}, {"nested_field", "another_nested"}}, // Top-level still preferred
 		},
 		{
-			name:     "Mixed, none in path",
-			method:   makeMethod(&api.Message{ID: ".test.MixedNonePath", Fields: []*api.Field{makeField("top_name", true, nil), makeField("nested_field", false, nestedMsg)}}),
-			setup:    func(m *api.Method) { addPathInfoCodec(m) },
-			wantPath: []string{"top_name"}, // Top-level preferred
+			name:      "Mixed, none in path",
+			method:    makeMethod(&api.Message{ID: ".test.MixedNonePath", Fields: []*api.Field{makeField("top_name", true, nil), makeField("nested_field", false, nestedMsg)}}),
+			setup:     func(m *api.Method) { addPathInfoCodec(m) },
+			wantPaths: [][]string{{"top_name"}, {"nested_field", "nested_name"}, {"nested_field", "another_nested"}}, // Top-level preferred
 		},
 		{
 			name: "Multiple nested, one in path",
@@ -2101,7 +2100,7 @@ func TestFindPrimaryResourceField(t *testing.T) {
 			setup: func(m *api.Method) {
 				addPathInfoCodec(m, "nested_field.another_nested")
 			},
-			wantPath: []string{"nested_field", "another_nested"},
+			wantPaths: [][]string{{"nested_field", "another_nested"}, {"nested_field", "nested_name"}},
 		},
 		{
 			name: "Multiple nested, camelCase, one in path",
@@ -2114,15 +2113,32 @@ func TestFindPrimaryResourceField(t *testing.T) {
 				// So we simulate that here.
 				addPathInfoCodec(m, "nested_field.another_nested")
 			},
-			wantPath: []string{"nestedField", "anotherNested"},
+			wantPaths: [][]string{{"nestedField", "anotherNested"}, {"nestedField", "nestedName"}},
 		},
 		{
 			name: "Multiple nested, none in path",
 			method: makeMethod(&api.Message{ID: ".test.MultiNestedNonePath", Fields: []*api.Field{
 				makeField("nested_field", false, nestedMsg),
 			}}),
-			setup:    func(m *api.Method) { addPathInfoCodec(m) },
-			wantPath: []string{"nested_field", "nested_name"}, // Proto order
+			setup:     func(m *api.Method) { addPathInfoCodec(m) },
+			wantPaths: [][]string{{"nested_field", "nested_name"}, {"nested_field", "another_nested"}}, // Proto order
+		},
+		{
+			name: "Repeated and Map fields ignored",
+			method: makeMethod(&api.Message{ID: ".test.RepeatedMap", Fields: []*api.Field{
+				{Name: "repeated_ref", ID: ".test.RepeatedMap.repeated_ref", IsResourceReference: true, Repeated: true, Typez: api.STRING_TYPE},
+				{Name: "map_ref", ID: ".test.RepeatedMap.map_ref", IsResourceReference: true, Map: true, Typez: api.MESSAGE_TYPE, TypezID: nestedMsg.ID, MessageType: nestedMsg},
+				{Name: "valid_ref", ID: ".test.RepeatedMap.valid_ref", IsResourceReference: true, Typez: api.STRING_TYPE},
+			}}),
+			wantPaths: [][]string{{"valid_ref"}},
+		},
+		{
+			name: "Nested in repeated parent ignored",
+			method: makeMethod(&api.Message{ID: ".test.NestedRepeated", Fields: []*api.Field{
+				{Name: "repeated_parent", ID: ".test.NestedRepeated.repeated_parent", Repeated: true, MessageType: nestedMsg, Typez: api.MESSAGE_TYPE, TypezID: nestedMsg.ID},
+				{Name: "valid_ref", ID: ".test.NestedRepeated.valid_ref", IsResourceReference: true, Typez: api.STRING_TYPE},
+			}}),
+			wantPaths: [][]string{{"valid_ref"}},
 		},
 	}
 
@@ -2138,22 +2154,24 @@ func TestFindPrimaryResourceField(t *testing.T) {
 			}
 			annotateModel(tt.method.Model, codec)
 
-			got := codec.findPrimaryResourceField(tt.method)
+			got := codec.findResourceNameFields(tt.method)
 
-			if len(tt.wantPath) == 0 {
-				if got != nil {
-					t.Errorf("findPrimaryResourceField() = %v, want nil", got.FieldPath)
+			if len(tt.wantPaths) == 0 {
+				if len(got) != 0 {
+					t.Errorf("findResourceNameFields() = %v, want nil", got)
 				}
 				return
 			}
 
-			if got == nil {
-				t.Errorf("findPrimaryResourceField() = nil, want %v", tt.wantPath)
+			if len(got) != len(tt.wantPaths) {
+				t.Errorf("findResourceNameFields() length mismatch: got %d, want %d", len(got), len(tt.wantPaths))
 				return
 			}
 
-			if diff := cmp.Diff(tt.wantPath, got.FieldPath); diff != "" {
-				t.Errorf("findPrimaryResourceField() FieldPath mismatch (-want +got):\n%s", diff)
+			for i, wantPath := range tt.wantPaths {
+				if diff := cmp.Diff(wantPath, got[i].FieldPath); diff != "" {
+					t.Errorf("findResourceNameFields() FieldPath[%d] mismatch (-want +got):\n%s", i, diff)
+				}
 			}
 		})
 	}

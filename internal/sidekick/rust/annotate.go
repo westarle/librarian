@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"sort"
 	"strings"
 
 	"github.com/googleapis/librarian/internal/sidekick/api"
@@ -231,7 +232,7 @@ type methodAnnotation struct {
 	Attributes                []string
 	RoutingRequired           bool
 	DetailedTracingAttributes bool
-	ResourceNameField         *candidateField
+	ResourceNameFields        []*candidateField
 }
 
 type pathInfoAnnotation struct {
@@ -737,7 +738,7 @@ func (c *codec) findResourceNameCandidates(m *api.Method) []*candidateField {
 
 	// Find top-level annotated fields
 	for _, field := range m.InputType.Fields {
-		if field.IsResourceReference {
+		if field.IsResourceReference && !field.Repeated && !field.Map {
 			candidates = append(candidates, &candidateField{
 				FieldPath: []string{field.Name},
 				Field:     field,
@@ -749,11 +750,11 @@ func (c *codec) findResourceNameCandidates(m *api.Method) []*candidateField {
 
 	// Find nested annotated fields (one level deep)
 	for _, field := range m.InputType.Fields {
-		if field.MessageType == nil {
+		if field.MessageType == nil || field.Repeated || field.Map {
 			continue
 		}
 		for _, nestedField := range field.MessageType.Fields {
-			if !nestedField.IsResourceReference {
+			if !nestedField.IsResourceReference || nestedField.Repeated || nestedField.Map {
 				continue
 			}
 			parentAccessor := makeFieldAccessor(field, "req")
@@ -773,7 +774,7 @@ func (c *codec) findResourceNameCandidates(m *api.Method) []*candidateField {
 	return candidates
 }
 
-func (c *codec) findPrimaryResourceField(m *api.Method) *candidateField {
+func (c *codec) findResourceNameFields(m *api.Method) []*candidateField {
 	if m.InputType == nil {
 		return nil
 	}
@@ -782,29 +783,6 @@ func (c *codec) findPrimaryResourceField(m *api.Method) *candidateField {
 
 	if len(candidates) == 0 {
 		return nil
-	}
-
-	if len(candidates) == 1 {
-		return candidates[0]
-	}
-
-	// Tie-breaking:
-	// 1. Prioritize top-level fields over nested fields.
-	// 2. Prioritize fields that are present in the HTTP path.
-	// 3. Fallback to proto definition order (implicit in candidates list).
-
-	var topLevel, nested []*candidateField
-	for _, candidate := range candidates {
-		if candidate.IsNested {
-			nested = append(nested, candidate)
-		} else {
-			topLevel = append(topLevel, candidate)
-		}
-	}
-
-	preferredCandidates := topLevel
-	if len(preferredCandidates) == 0 {
-		preferredCandidates = nested
 	}
 
 	// Check for HTTP path presence
@@ -818,24 +796,38 @@ func (c *codec) findPrimaryResourceField(m *api.Method) *candidateField {
 		}
 	}
 
-	if httpParams != nil {
-		var inPath []*candidateField
-		for _, candidate := range preferredCandidates {
-			var snakeParts []string
-			for _, p := range candidate.FieldPath {
-				snakeParts = append(snakeParts, toSnake(p))
-			}
-			fieldName := strings.Join(snakeParts, ".")
-			if httpParams[fieldName] {
-				inPath = append(inPath, candidate)
-			}
+	isInPath := func(c *candidateField) bool {
+		if httpParams == nil {
+			return false
 		}
-		if len(inPath) > 0 {
-			preferredCandidates = inPath
+		var snakeParts []string
+		for _, p := range c.FieldPath {
+			snakeParts = append(snakeParts, toSnake(p))
 		}
+		fieldName := strings.Join(snakeParts, ".")
+		return httpParams[fieldName]
 	}
 
-	return preferredCandidates[0] // Proto order
+	// Sort candidates by priority:
+	// 1. Top-level fields (IsNested == false)
+	// 2. Fields in HTTP path (isInPath == true)
+	// 3. Proto definition order (stable sort)
+	sort.SliceStable(candidates, func(i, j int) bool {
+		// 1. Top-level before Nested
+		if candidates[i].IsNested != candidates[j].IsNested {
+			return !candidates[i].IsNested // false (top) < true (nested)
+		}
+		// 2. In-Path before Not-In-Path
+		inPathI := isInPath(candidates[i])
+		inPathJ := isInPath(candidates[j])
+		if inPathI != inPathJ {
+			return inPathI // true (in path) < false (not in path) -> we want true first
+		}
+		// 3. Stable sort preserves proto order
+		return i < j
+	})
+
+	return candidates
 }
 
 // packageToModuleName maps "google.foo.v1" to "google::foo::v1".
@@ -968,7 +960,7 @@ func (c *codec) annotateMethod(m *api.Method) {
 		HasVeneer:                 c.hasVeneer,
 		RoutingRequired:           c.routingRequired,
 		DetailedTracingAttributes: c.detailedTracingAttributes,
-		ResourceNameField:         c.findPrimaryResourceField(m),
+		ResourceNameFields:        c.findResourceNameFields(m),
 	}
 	if annotation.Name == "clone" {
 		// Some methods look too similar to standard Rust traits. Clippy makes
