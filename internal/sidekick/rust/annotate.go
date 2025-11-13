@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"sort"
 	"strings"
 
 	"github.com/googleapis/librarian/internal/sidekick/api"
@@ -26,6 +27,14 @@ import (
 	"github.com/googleapis/librarian/internal/sidekick/license"
 	"github.com/iancoleman/strcase"
 )
+
+// candidateField represents a potential field to use for the resource name.
+type candidateField struct {
+	FieldPath []string // e.g., ["book"], ["book", "name"]
+	Field     *api.Field
+	IsNested  bool
+	Accessor  string
+}
 
 type modelAnnotations struct {
 	PackageName      string
@@ -223,6 +232,7 @@ type methodAnnotation struct {
 	Attributes                []string
 	RoutingRequired           bool
 	DetailedTracingAttributes bool
+	ResourceNameFields        []*candidateField
 }
 
 type pathInfoAnnotation struct {
@@ -690,6 +700,136 @@ func (c *codec) addFeatureAnnotations(model *api.API, ann *modelAnnotations) {
 	}
 }
 
+func (c *codec) findAnnotatedFields(msg *api.Message, depth int) int {
+	if msg == nil || depth > 1 {
+		return 0
+	}
+
+	count := 0
+	for _, field := range msg.Fields {
+		if field.IsResourceReference {
+			count++
+		}
+		if depth == 0 && field.MessageType != nil {
+			count += c.findAnnotatedFields(field.MessageType, depth+1)
+		}
+	}
+	return count
+}
+
+// makeFieldAccessor generates the Rust accessor code for a field.
+// It handles optional fields and oneofs correctly.
+// parentAccessor is the accessor for the parent message (e.g. "req" or "s").
+func makeFieldAccessor(field *api.Field, parentAccessor string) string {
+	fieldName := toSnake(field.Name)
+	if field.IsOneOf {
+		return fmt.Sprintf("%s.%s()", parentAccessor, fieldName)
+	}
+	if field.Optional {
+		return fmt.Sprintf("%s.%s.as_ref()", parentAccessor, fieldName)
+	}
+	return fmt.Sprintf("Some(&%s.%s)", parentAccessor, fieldName)
+}
+
+// findResourceNameCandidates identifies all fields annotated with google.api.resource_reference.
+// It searches top-level fields and fields nested one level deep.
+func (c *codec) findResourceNameCandidates(m *api.Method) []*candidateField {
+	var candidates []*candidateField
+
+	// Find top-level annotated fields
+	for _, field := range m.InputType.Fields {
+		if field.IsResourceReference && !field.Repeated && !field.Map {
+			candidates = append(candidates, &candidateField{
+				FieldPath: []string{field.Name},
+				Field:     field,
+				IsNested:  false,
+				Accessor:  makeFieldAccessor(field, "req"),
+			})
+		}
+	}
+
+	// Find nested annotated fields (one level deep)
+	for _, field := range m.InputType.Fields {
+		if field.MessageType == nil || field.Repeated || field.Map {
+			continue
+		}
+		for _, nestedField := range field.MessageType.Fields {
+			if !nestedField.IsResourceReference || nestedField.Repeated || nestedField.Map {
+				continue
+			}
+			parentAccessor := makeFieldAccessor(field, "req")
+			nestedAccessor := makeFieldAccessor(nestedField, "s")
+
+			// Combine accessors: parent.and_then(|s| nested)
+			fullAccessor := fmt.Sprintf("%s.and_then(|s| %s)", parentAccessor, nestedAccessor)
+
+			candidates = append(candidates, &candidateField{
+				FieldPath: []string{field.Name, nestedField.Name},
+				Field:     nestedField,
+				IsNested:  true,
+				Accessor:  fullAccessor,
+			})
+		}
+	}
+	return candidates
+}
+
+func (c *codec) findResourceNameFields(m *api.Method) []*candidateField {
+	if m.InputType == nil {
+		return nil
+	}
+
+	candidates := c.findResourceNameCandidates(m)
+
+	if len(candidates) == 0 {
+		return nil
+	}
+
+	// Check for HTTP path presence
+	var httpParams map[string]bool
+	if m.PathInfo != nil && m.PathInfo.Codec != nil {
+		if pia, ok := m.PathInfo.Codec.(*pathInfoAnnotation); ok {
+			httpParams = make(map[string]bool)
+			for _, p := range pia.UniqueParameters {
+				httpParams[p.FieldName] = true
+			}
+		}
+	}
+
+	isInPath := func(c *candidateField) bool {
+		if httpParams == nil {
+			return false
+		}
+		var snakeParts []string
+		for _, p := range c.FieldPath {
+			snakeParts = append(snakeParts, toSnake(p))
+		}
+		fieldName := strings.Join(snakeParts, ".")
+		return httpParams[fieldName]
+	}
+
+	// Sort candidates by priority:
+	// 1. Top-level fields (IsNested == false)
+	// 2. Fields in HTTP path (isInPath == true)
+	// 3. Proto definition order (stable sort)
+	sort.SliceStable(candidates, func(i, j int) bool {
+		// 1. Top-level before Nested
+		if candidates[i].IsNested != candidates[j].IsNested {
+			return !candidates[i].IsNested // false (top) < true (nested)
+		}
+		// 2. In-Path before Not-In-Path
+		inPathI := isInPath(candidates[i])
+		inPathJ := isInPath(candidates[j])
+		if inPathI != inPathJ {
+			return inPathI // true (in path) < false (not in path) -> we want true first
+		}
+		// 3. Stable sort preserves proto order
+		return i < j
+	})
+
+	return candidates
+}
+
 // packageToModuleName maps "google.foo.v1" to "google::foo::v1".
 func packageToModuleName(p string) string {
 	components := strings.Split(p, ".")
@@ -820,6 +960,7 @@ func (c *codec) annotateMethod(m *api.Method) {
 		HasVeneer:                 c.hasVeneer,
 		RoutingRequired:           c.routingRequired,
 		DetailedTracingAttributes: c.detailedTracingAttributes,
+		ResourceNameFields:        c.findResourceNameFields(m),
 	}
 	if annotation.Name == "clone" {
 		// Some methods look too similar to standard Rust traits. Clippy makes
