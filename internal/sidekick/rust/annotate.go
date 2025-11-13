@@ -233,6 +233,7 @@ type methodAnnotation struct {
 	RoutingRequired           bool
 	DetailedTracingAttributes bool
 	ResourceNameFields        []*candidateField
+	HasResourceNameFields     bool
 }
 
 type pathInfoAnnotation struct {
@@ -945,6 +946,7 @@ func (c *codec) annotateMethod(m *api.Method) {
 		returnType = "()"
 	}
 	serviceName := c.ServiceName(m.Service)
+	resourceNameFields := c.findResourceNameFields(m)
 	annotation := &methodAnnotation{
 		Name:                      toSnake(m.Name),
 		NameNoMangling:            toSnakeNoMangling(m.Name),
@@ -960,7 +962,8 @@ func (c *codec) annotateMethod(m *api.Method) {
 		HasVeneer:                 c.hasVeneer,
 		RoutingRequired:           c.routingRequired,
 		DetailedTracingAttributes: c.detailedTracingAttributes,
-		ResourceNameFields:        c.findResourceNameFields(m),
+		ResourceNameFields:        resourceNameFields,
+		HasResourceNameFields:     len(resourceNameFields) > 0,
 	}
 	if annotation.Name == "clone" {
 		// Some methods look too similar to standard Rust traits. Clippy makes
