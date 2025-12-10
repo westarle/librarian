@@ -68,7 +68,7 @@ where T: super::stub::{{Codec.Name}} + std::fmt::Debug + Send + Sync {
         let client_request_span = gaxi::observability::create_client_request_span(
             span_name,
             "{{Codec.Name}}",
-            &crate::info::INSTRUMENTATION_CLIENT_INFO,
+            &super::transport::info::INSTRUMENTATION_CLIENT_INFO,
         );
 
         let result = self.inner.{{Codec.Name}}(req, options)

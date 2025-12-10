@@ -26,6 +26,7 @@ use crate::Result;
 #[allow(unused_imports)]
 use gax::error::Error;
 
+pub(crate) use crate::info;
 {{/Codec.HasServices}}
 {{#Codec.Services}}
 /// Implements [{{Codec.Name}}](super::stub::{{Codec.Name}}) using a [gaxi::http::ReqwestClient].
