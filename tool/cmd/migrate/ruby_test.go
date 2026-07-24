@@ -264,9 +264,10 @@ func TestParseVersionedBuild(t *testing.T) {
 			googleapisDir: "testdata/googleapis",
 			apiPath:       "google/cloud/automl/v1",
 			want: &VersionedBuild{
-				EnvPrefix:    "AUTOML",
-				PathOverride: "auto_ml=automl",
-				YardStrict:   "false",
+				EnvPrefix:         "AUTOML",
+				NamespaceOverride: "AutoMl=AutoML;Automl=AutoML",
+				PathOverride:      "auto_ml=automl",
+				YardStrict:        "false",
 			},
 		},
 		{
