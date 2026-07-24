@@ -97,8 +97,9 @@ func TestFindRubyLibraries(t *testing.T) {
 					Path: "google/cloud/compute/v1",
 					Ruby: &config.RubyAPI{
 						RubyCloudOpts: &config.RubyCloudOpts{
-							EnvPrefix:         "COMPUTE",
-							ExtraDependencies: "google-cloud-common=~> 1.0",
+							EnvPrefix:          "COMPUTE",
+							ExtraDependencies:  "google-cloud-common=~> 1.0",
+							WrapperGemOverride: "value_for_testing",
 						},
 					},
 				},
@@ -277,6 +278,16 @@ func TestParseVersionedBuild(t *testing.T) {
 			want: &VersionedBuild{
 				GemNamespace:    "Google::Cloud::AlloyDB::V1",
 				ServiceOverride: "AlloyDBCSQLAdmin=AlloyDBCloudSQLAdmin",
+			},
+		},
+		{
+			name:          "BUILD.bazel with wrapper gem override",
+			googleapisDir: "testdata/googleapis",
+			apiPath:       "google/cloud/compute/v1",
+			want: &VersionedBuild{
+				EnvPrefix:          "COMPUTE",
+				ExtraDeps:          "google-cloud-common=~> 1.0",
+				WrapperGemOverride: "value_for_testing",
 			},
 		},
 		{
