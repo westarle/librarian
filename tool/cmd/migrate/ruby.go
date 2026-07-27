@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -50,6 +51,10 @@ type owlbotYaml struct {
 
 type owlbotSrc struct {
 	Source string `yaml:"source"`
+}
+
+type owlbotManifest struct {
+	Static []string `json:"static"`
 }
 
 // WrapperBuild represents build configuration parsed from BUILD.bazel for an unversioned Ruby wrapper library.
@@ -154,6 +159,11 @@ func findRubyLibraries(googleapisPath, repoPath string) ([]*config.Library, erro
 		lib := &config.Library{
 			Name: name,
 		}
+		keep, err := parseKeepFromManifest(filepath.Join(repoPath, name, ".owlbot-manifest.json"))
+		if err != nil {
+			return nil, err
+		}
+		lib.Keep = keep
 		api, isWrapper, err := parseAPIFromOwlBot(owlBotPath)
 		if err != nil {
 			return nil, err
@@ -410,4 +420,22 @@ func parseAPIFromWrapperBuild(file *build.File) string {
 	}
 	res, _ = strings.CutPrefix(res, "//")
 	return res
+}
+
+func parseKeepFromManifest(path string) ([]string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var manifest owlbotManifest
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		return nil, fmt.Errorf("unmarshaling owlbot manifest %s: %w", path, err)
+	}
+	manifest.Static = slices.DeleteFunc(manifest.Static, func(s string) bool {
+		return s == ".OwlBot.yaml"
+	})
+	return manifest.Static, nil
 }
