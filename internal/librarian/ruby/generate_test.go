@@ -72,6 +72,26 @@ func TestBuildGAPICOpts(t *testing.T) {
 				"ruby-cloud-rest-numeric-enums=true",
 			},
 		},
+		{
+			name: "ruby cloud opts with migration version",
+			api: &config.API{
+				Path: "google/cloud/secretmanager/v1",
+				Ruby: &config.RubyAPI{
+					RubyCloudOpts: &config.RubyCloudOpts{
+						MigrationVersion: "1.0",
+					},
+				},
+			},
+			gemName: "google-cloud-secret_manager",
+			want: []string{
+				"ruby-cloud-gem-name=google-cloud-secret_manager",
+				"service-yaml=" + filepath.Join(googleapisDir, "google/cloud/secretmanager/v1/secretmanager_v1.yaml"),
+				"grpc-service-config=" + filepath.Join(googleapisDir, "google/cloud/secretmanager/v1/secretmanager_grpc_service_config.json"),
+				"ruby-cloud-generate-transports=grpc;rest",
+				"ruby-cloud-rest-numeric-enums=true",
+				"ruby-cloud-migration-version=1.0",
+			},
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			got, err := buildGAPICOpts(test.api, test.gemName, googleapisDir)
